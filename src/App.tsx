@@ -1,35 +1,41 @@
-import React, { Component } from 'react';
+import * as React from 'react';
 import DataTable from './components/DataTable';
 import ParameterForm from './components/ParameterForm';
+import CalculationParameters from './model/CalculationParameters';
 import { Grid, Row, Col } from 'react-bootstrap';
 import './App.css';
 
-class App extends Component {
-  constructor(props) {
+export interface AppProps { }
+export interface AppState {
+  tableData: Array<Array<number>>;
+}
+
+export default class App extends React.Component<AppProps, AppState> {
+  constructor(props: AppProps) {
     super(props);
     this.state = {
       tableData: [[]]
-    }
+    };
 
     this.onParameterChanged = this.onParameterChanged.bind(this);
   }
 
-  onParameterChanged(params) {
-    console.log("New parameters:", params);
+  onParameterChanged(params: CalculationParameters) {
+    // console.log('New parameters:', params);
     this.setState({
       tableData: this.generateTableData(params, 10)
     });
   }
 
-  generateTableData(params, maxYears) {
-    let data = [];
+  generateTableData(params: CalculationParameters, maxYears: number): Array<Array<number>> {
+    // let data = [];
     for (let i = 0; i <= maxYears; i++) {
       let row = [];
       row.push(i); // end of year
       row.push(params.annualIncome);
       row.push(params.annualExpenses);
-      row.push(params.)
     }
+    return [[]];
   }
 
   render() {
@@ -44,21 +50,22 @@ class App extends Component {
             </Col>
           </Row>
           <Row>
-            <DataTable headers={
-              [
-                'End of Year',
-                'Income',
-                'Expenses',
-                'Return on Investments',
-                'Change in Savings',
-                'Savings'
-              ]
-            } data={data} />
+            <DataTable
+              headers={
+                [
+                  'End of Year',
+                  'Income',
+                  'Expenses',
+                  'Return on Investments',
+                  'Change in Savings',
+                  'Savings'
+                ]
+              }
+              data={data}
+            />
           </Row>
         </Grid>
       </div>
     );
   }
 }
-
-export default App;

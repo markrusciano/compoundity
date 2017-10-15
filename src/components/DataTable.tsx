@@ -1,8 +1,12 @@
-import React, { Component } from 'react';
-import PropTypes from 'prop-types';
+import * as React from 'react';
 import { Table } from 'react-bootstrap';
 
-export default class DataTable extends Component {
+export interface DataTableProps {
+    headers: Array<string>;
+    data: Array<Array<number>>;
+}
+
+export default class DataTable extends React.Component<DataTableProps> {
     render() {
         let headers = [];
         for (let i = 0; i < this.props.headers.length; i++) {
@@ -25,7 +29,7 @@ export default class DataTable extends Component {
         }
 
         return (
-            <Table striped bordered condensed hover>
+            <Table striped={true} bordered={true} condensed={true} hover={true}>
                 <thead>
                     <tr>{headers}</tr>
                 </thead>
@@ -35,8 +39,3 @@ export default class DataTable extends Component {
         );
     }
 }
-
-DataTable.propTypes = {
-    headers: PropTypes.array.isRequired,
-    data: PropTypes.array.isRequired,
-};

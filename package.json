@@ -1,23 +1,24 @@
 {
-  "name": "compoundity",
+  "name": "compoundity-ts",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "prop-types": "^15.6.0",
     "react": "^16.0.0",
     "react-bootstrap": "^0.31.3",
     "react-dom": "^16.0.0",
-    "react-scripts": "1.0.14"
+    "react-scripts-ts": "2.7.0"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test --env=jsdom",
-    "eject": "react-scripts eject"
+    "start": "react-scripts-ts start",
+    "build": "react-scripts-ts build",
+    "test": "react-scripts-ts test --env=jsdom",
+    "eject": "react-scripts-ts eject"
   },
   "devDependencies": {
-    "eslint": "^4.9.0",
-    "eslint-config-google": "^0.9.1",
-    "eslint-plugin-react": "^7.4.0"
+    "@types/jest": "^21.1.2",
+    "@types/node": "^8.0.34",
+    "@types/react": "^16.0.10",
+    "@types/react-bootstrap": "^0.31.4",
+    "@types/react-dom": "^16.0.1"
   }
 }
