@@ -30,6 +30,7 @@ export class ParsedCalculationParameters {
 
 export class CalculatedDatum {
     endOfYear: number = 0;
+    endOfMonth: number = 1;
     income: number = 0;
     expenses: number = 0;
     returnOnInvestments: number = 0;
@@ -39,6 +40,49 @@ export class CalculatedDatum {
     public toTableArray(): Array<number> {
         return [
             this.endOfYear,
+            this.endOfMonth,
+            this.income,
+            this.expenses,
+            this.returnOnInvestments,
+            this.changeInSavings,
+            this.savings
+        ];
+    }
+}
+
+export class FormattedDatum {
+    endOfYear: string = '-';
+    endOfMonth: string = '-';
+    income: string = '-';
+    expenses: string = '-';
+    returnOnInvestments: string = '-';
+    changeInSavings: string = '-';
+    savings: string = '-';
+
+    private readonly currencyLocaleOptions: Intl.NumberFormatOptions = {
+        maximumFractionDigits: 0
+    };
+
+    constructor(rawDatum: CalculatedDatum) {
+
+        this.endOfYear = rawDatum.endOfYear.toString();
+        this.endOfMonth = rawDatum.endOfMonth.toString();
+        this.income = rawDatum.endOfYear.toLocaleString(
+            undefined, this.currencyLocaleOptions);
+        this.expenses = rawDatum.expenses.toLocaleString(
+            undefined, this.currencyLocaleOptions);
+        this.returnOnInvestments = rawDatum.returnOnInvestments.toLocaleString(
+            undefined, this.currencyLocaleOptions);
+        this.changeInSavings = rawDatum.changeInSavings.toLocaleString(
+            undefined, this.currencyLocaleOptions);
+        this.savings = rawDatum.savings.toLocaleString(
+            undefined, this.currencyLocaleOptions);
+    }
+
+    public toTableArray(): Array<string> {
+        return [
+            this.endOfYear,
+            this.endOfMonth,
             this.income,
             this.expenses,
             this.returnOnInvestments,

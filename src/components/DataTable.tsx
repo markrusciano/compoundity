@@ -3,7 +3,7 @@ import { Table } from 'react-bootstrap';
 
 export interface DataTableProps {
     headers: Array<string>;
-    data: Array<Array<number>>;
+    data: Array<Array<string>>;
 }
 
 export default class DataTable extends React.Component<DataTableProps> {

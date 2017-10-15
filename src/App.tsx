@@ -1,7 +1,11 @@
 import * as React from 'react';
 import DataTable from './components/DataTable';
 import ParameterForm from './components/ParameterForm';
-import { CalculationParameters, ParsedCalculationParameters } from './model/CalculationInterfaces';
+import {
+  CalculationParameters,
+  ParsedCalculationParameters,
+  FormattedDatum
+} from './model/CalculationInterfaces';
 import Calculator from './Calculator';
 import { Grid, Row, Col } from 'react-bootstrap';
 import './App.css';
@@ -31,13 +35,10 @@ export default class App extends React.Component<AppProps, AppState> {
   }
 
   render() {
-    let tableArray: Array<Array<number>> = [];
     const parsedParams = new ParsedCalculationParameters(this.state.formParams);
     const tableData = Calculator.calculate(parsedParams, 10);
-
-    for (let i = 0; i < tableData.length; i++) {
-      tableArray.push(tableData[i].toTableArray());
-    }
+    const formattedTableData = tableData.map(
+      (tableDatum) => new FormattedDatum(tableDatum).toTableArray());
 
     return (
       <div>
@@ -55,6 +56,7 @@ export default class App extends React.Component<AppProps, AppState> {
               headers={
                 [
                   'End of Year',
+                  'End of Month',
                   'Income',
                   'Expenses',
                   'Return on Investments',
@@ -62,7 +64,8 @@ export default class App extends React.Component<AppProps, AppState> {
                   'Savings'
                 ]
               }
-              data={tableArray}
+
+              data={formattedTableData}
             />
           </Row>
         </Grid>
