@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { Table } from 'react-bootstrap';
 
-export default class DataTable extends React.Component {
+export default class DataTable extends Component {
     render() {
         let headers = [];
         for (let i = 0; i < this.props.headers.length; i++) {
