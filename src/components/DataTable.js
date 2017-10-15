@@ -7,7 +7,7 @@ export default class DataTable extends Component {
         let headers = [];
         for (let i = 0; i < this.props.headers.length; i++) {
             headers.push(
-                <th>{this.props.headers[i]}</th>);
+                <th key={`header${i}`}>{this.props.headers[i]}</th>);
         }
 
         let rows = [];
