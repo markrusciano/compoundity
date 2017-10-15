@@ -1,42 +1,19 @@
 import * as React from 'react';
-import CalculationParameters from '../model/CalculationParameters';
+import { CalculationParameters } from '../model/CalculationInterfaces';
 import { FormGroup, FormControl, ControlLabel, InputGroup } from 'react-bootstrap';
 
+export type ParameterChangedCallback = (params: CalculationParameters) => void;
+
 export interface ParameterFormProps {
-    onParameterChanged: Function;
+    formParameters: CalculationParameters;
+    onParameterChanged: ParameterChangedCallback;
 }
 
-type StateKeys = keyof ParameterFormState;
-
-export interface ParameterFormState extends CalculationParameters { }
-
-export default class ParameterForm extends React.Component<ParameterFormProps, ParameterFormState> {
+export default class ParameterForm extends React.Component<ParameterFormProps> {
     constructor(props: ParameterFormProps) {
         super(props);
-        this.state = {
-            annualIncome: '50000',
-            annualSavings: '30000',
-            annualExpenses: '20000',
-            savingRate: '60',
-            portfolioValue: '0',
-            annualReturn: '5',
-            withdrawalRate: '4'
-        };
 
         this.handleInputChange = this.handleInputChange.bind(this);
-    }
-
-    handleInputChange(event: React.FormEvent<FormControl>) {
-        const target = event.target as HTMLInputElement;
-        const value = target.value;
-        const name = target.name as StateKeys;
-
-        /* tslint:disable */
-        this.setState({
-            [name as any]: value
-        });
-        /* tslint:enable */
-
     }
 
     render() {
@@ -45,7 +22,7 @@ export default class ParameterForm extends React.Component<ParameterFormProps, P
                 <ParamInput
                     id="annualIncome"
                     label="Annual Income"
-                    value={this.state.annualIncome}
+                    value={this.props.formParameters.annualIncome}
                     type="number"
                     onChange={this.handleInputChange}
                     preAddon="$"
@@ -54,7 +31,7 @@ export default class ParameterForm extends React.Component<ParameterFormProps, P
                 <ParamInput
                     id="annualSavings"
                     label="Annual Savings"
-                    value={this.state.annualSavings}
+                    value={this.props.formParameters.annualSavings}
                     type="number"
                     onChange={this.handleInputChange}
                     preAddon="$"
@@ -63,7 +40,7 @@ export default class ParameterForm extends React.Component<ParameterFormProps, P
                 <ParamInput
                     id="annualExpenses"
                     label="Annual Expenses"
-                    value={this.state.annualExpenses}
+                    value={this.props.formParameters.annualExpenses}
                     type="number"
                     onChange={this.handleInputChange}
                     preAddon="$"
@@ -72,7 +49,7 @@ export default class ParameterForm extends React.Component<ParameterFormProps, P
                 <ParamInput
                     id="savingRate"
                     label="Saving Rate"
-                    value={this.state.savingRate}
+                    value={this.props.formParameters.savingRate}
                     type="number"
                     onChange={this.handleInputChange}
                     postAddon="%"
@@ -81,7 +58,7 @@ export default class ParameterForm extends React.Component<ParameterFormProps, P
                 <ParamInput
                     id="portfolioValue"
                     label="PortfolioValue"
-                    value={this.state.portfolioValue}
+                    value={this.props.formParameters.portfolioValue}
                     type="number"
                     onChange={this.handleInputChange}
                     preAddon="$"
@@ -90,7 +67,7 @@ export default class ParameterForm extends React.Component<ParameterFormProps, P
                 <ParamInput
                     id="annualReturn"
                     label="Annual Return"
-                    value={this.state.annualReturn}
+                    value={this.props.formParameters.annualReturn}
                     type="number"
                     onChange={this.handleInputChange}
                     postAddon="%"
@@ -99,12 +76,20 @@ export default class ParameterForm extends React.Component<ParameterFormProps, P
                 <ParamInput
                     id="withdrawalRate"
                     label="Withdrawal Rate"
-                    value={this.state.withdrawalRate}
+                    value={this.props.formParameters.withdrawalRate}
                     type="number"
                     onChange={this.handleInputChange}
                     postAddon="%"
                 />
             </form>);
+    }
+
+    private handleInputChange(event: React.FormEvent<FormControl>) {
+        const target = event.target as HTMLInputElement;
+        const value = target.value;
+        const name = target.name;
+        this.props.formParameters[name] = value;
+        this.props.onParameterChanged(this.props.formParameters);
     }
 }
 
