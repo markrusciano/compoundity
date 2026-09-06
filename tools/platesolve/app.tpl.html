@@ -1,0 +1,905 @@
+<title>Zenith Over Washington</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --void:#06070D; --deep:#0E1324; --panel:#131A2E; --rule:#1E2740;
+  --ink:#E7EAF6; --dim:#8B94B2;
+  --amber:#F0B24A; --cyan:#6FD3E8; --indigo:#7A88DE; --jade:#7FD1A8;
+  --serif:"Cormorant Garamond",Georgia,"Times New Roman",serif;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --tab-h:calc(54px + env(safe-area-inset-bottom));
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--void);color:var(--ink);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;overscroll-behavior:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:4px}
+
+#app{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--void)}
+
+/* ---------- top readout ---------- */
+#bar{flex:0 0 auto;display:flex;align-items:baseline;gap:10px;
+  padding:calc(8px + env(safe-area-inset-top)) 14px 8px;
+  border-bottom:1px solid var(--rule);background:var(--deep);z-index:5}
+#bar h1{margin:0;font-family:var(--serif);font-weight:600;font-size:19px;letter-spacing:.01em;
+  text-wrap:balance;white-space:nowrap}
+#bar .sub{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.02em;
+  margin-left:auto;text-align:right;line-height:1.35;font-variant-numeric:tabular-nums}
+#bar .sub b{color:var(--amber);font-weight:500}
+
+/* ---------- stage ---------- */
+#stage{position:relative;flex:1 1 auto;min-height:0;overflow:hidden;background:var(--void)}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+/* ---------- floating controls ---------- */
+.chip{position:absolute;z-index:4;background:rgba(14,19,36,.86);border:1px solid var(--rule);
+  border-radius:999px;padding:7px 13px;font-size:12px;font-family:var(--mono);
+  color:var(--dim);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  font-variant-numeric:tabular-nums}
+.chip b{color:var(--ink);font-weight:500}
+#readout{left:12px;top:12px;line-height:1.5;border-radius:12px;padding:8px 11px}
+#zoombtns{right:12px;top:12px;display:flex;flex-direction:column;gap:6px;z-index:4;position:absolute}
+#zoombtns button{width:38px;height:38px;border-radius:11px;background:rgba(14,19,36,.86);
+  border:1px solid var(--rule);font-family:var(--mono);font-size:16px;color:var(--ink);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);display:grid;place-items:center}
+#guide{left:50%;transform:translateX(-50%);bottom:14px;text-align:center;max-width:min(340px,86vw)}
+#guide.hit{border-color:var(--amber);color:var(--amber)}
+
+/* ---------- AR permission gate ---------- */
+#gate{position:absolute;inset:0;z-index:6;display:none;place-items:center;padding:24px;
+  background:radial-gradient(120% 90% at 50% 30%,#101736 0%,var(--void) 70%)}
+#gate.on{display:grid}
+#gate .box{max-width:340px;text-align:center}
+#gate h2{font-family:var(--serif);font-size:27px;font-weight:600;margin:0 0 10px;line-height:1.2}
+#gate p{color:var(--dim);font-size:13.5px;line-height:1.65;margin:0 0 20px}
+#gate .go{background:var(--amber);color:#1A1206;font-weight:600;font-size:15px;
+  padding:13px 26px;border-radius:12px;letter-spacing:.01em}
+#gate .alt{display:block;margin-top:14px;color:var(--dim);font-size:12.5px;
+  text-decoration:underline;text-underline-offset:3px;width:100%}
+
+/* ---------- object card ---------- */
+#card{position:absolute;left:12px;right:12px;bottom:12px;z-index:7;display:none;
+  background:rgba(19,26,46,.95);border:1px solid var(--rule);border-radius:16px;padding:14px 16px;
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  box-shadow:0 12px 40px rgba(0,0,0,.6)}
+#card.on{display:block}
+#card .row{display:flex;align-items:flex-start;gap:12px}
+#card .nm{font-family:var(--serif);font-size:24px;font-weight:600;line-height:1.1}
+#card .bay{font-family:var(--mono);font-size:11px;color:var(--amber);letter-spacing:.06em;
+  text-transform:uppercase;margin-top:3px}
+#card .x{margin-left:auto;font-size:22px;color:var(--dim);line-height:1;padding:2px 6px}
+#card dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:11px 0 0;
+  font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums}
+#card dt{color:var(--dim);letter-spacing:.03em}
+#card dd{margin:0;color:var(--ink)}
+#card .note{margin:10px 0 0;font-size:12.5px;line-height:1.55;color:var(--dim);
+  font-family:var(--sans);border-top:1px solid var(--rule);padding-top:9px}
+
+/* ---------- layer sheet ---------- */
+#sheet{position:absolute;left:0;right:0;bottom:0;z-index:8;background:var(--panel);
+  border-top:1px solid var(--rule);border-radius:18px 18px 0 0;padding:8px 16px 18px;
+  transform:translateY(101%);transition:transform .28s cubic-bezier(.32,.72,0,1);
+  box-shadow:0 -10px 40px rgba(0,0,0,.5)}
+#sheet.on{transform:translateY(0)}
+#sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--rule);margin:0 auto 12px}
+#sheet h3{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);margin:0 0 9px;font-weight:500}
+.toggles{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:7px}
+.tg{display:flex;align-items:center;gap:8px;padding:9px 11px;border:1px solid var(--rule);
+  border-radius:10px;font-size:12.5px;background:var(--deep);text-align:left;width:100%}
+.tg .dot{width:9px;height:9px;border-radius:3px;flex:0 0 auto;background:var(--rule)}
+.tg[aria-pressed="true"]{border-color:#33406B;background:#182142}
+.tg[aria-pressed="true"] .dot{background:var(--c,var(--amber))}
+.slider{display:flex;align-items:center;gap:11px;margin-top:14px}
+.slider label{font-family:var(--mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--dim);flex:0 0 74px}
+.slider input{flex:1;accent-color:var(--amber);min-width:0}
+.slider output{font-family:var(--mono);font-size:11px;color:var(--ink);flex:0 0 46px;text-align:right;
+  font-variant-numeric:tabular-nums}
+
+/* ---------- report ---------- */
+#report{position:absolute;inset:0;z-index:3;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  display:none;background:var(--void);padding:22px 20px calc(28px + var(--tab-h))}
+#report.on{display:block}
+.doc{max-width:62ch;margin:0 auto}
+.doc .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--amber);margin:0 0 8px}
+.doc h2{font-family:var(--serif);font-size:31px;font-weight:600;line-height:1.12;margin:0 0 10px;
+  text-wrap:balance}
+.doc .lede{font-size:15px;line-height:1.62;color:var(--dim);margin:0 0 26px}
+.doc h3{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);font-weight:500;margin:30px 0 11px;padding-bottom:7px;border-bottom:1px solid var(--rule)}
+.doc p{font-size:14px;line-height:1.68;margin:0 0 13px;color:var(--ink)}
+.doc p.q{color:var(--dim);font-size:13px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:7px 16px;font-family:var(--mono);font-size:12px;
+  font-variant-numeric:tabular-nums;margin:0}
+.kv dt{color:var(--dim);letter-spacing:.02em;white-space:nowrap}
+.kv dd{margin:0}
+.kv dd b{color:var(--amber);font-weight:500}
+.tablewrap{overflow-x:auto;margin:0 -20px;padding:0 20px}
+table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:11.5px;
+  font-variant-numeric:tabular-nums;min-width:340px}
+th{text-align:left;font-weight:500;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;
+  font-size:9.5px;padding:0 10px 7px 0;border-bottom:1px solid var(--rule);white-space:nowrap}
+td{padding:6px 10px 6px 0;border-bottom:1px solid rgba(30,39,64,.5);vertical-align:top}
+td.n{color:var(--ink)}
+td.d{color:var(--dim)}
+.marks{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 0}
+.mark{font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;padding:4px 9px;
+  border:1px solid var(--rule);border-radius:999px;color:var(--dim)}
+.mark b{color:var(--ink);font-weight:500}
+.resid{display:flex;align-items:flex-end;gap:3px;height:46px;margin:4px 0 6px}
+.resid i{flex:1;background:linear-gradient(180deg,var(--cyan),#2A5C74);border-radius:1.5px 1.5px 0 0;
+  min-height:2px;display:block}
+.caption{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.03em;margin:0 0 4px}
+
+/* ---------- tabs ---------- */
+#tabs{flex:0 0 auto;display:grid;grid-template-columns:repeat(4,1fr);
+  border-top:1px solid var(--rule);background:var(--deep);
+  padding-bottom:env(safe-area-inset-bottom);z-index:9}
+#tabs button{padding:9px 4px 9px;display:flex;flex-direction:column;align-items:center;gap:4px;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim)}
+#tabs button svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.5}
+#tabs button[aria-selected="true"]{color:var(--amber)}
+
+@media (prefers-reduced-motion:reduce){#sheet{transition:none}}
+@media (min-width:760px){
+  #bar h1{font-size:22px} #bar .sub{font-size:11.5px}
+  .doc{max-width:66ch} .doc h2{font-size:36px}
+}
+</style>
+
+<div id="app">
+  <header id="bar">
+    <h1>Zenith Over Washington</h1>
+    <div class="sub"><b>22<sup>h</sup>15<sup>m</sup>28<sup>s</sup> &nbsp;+39&deg;40&prime;37&Prime;</b><br>6 Sep 2026 &middot; 00:22 EDT</div>
+  </header>
+
+  <div id="stage">
+    <canvas id="cv"></canvas>
+
+    <div id="readout" class="chip" hidden></div>
+    <div id="zoombtns" hidden>
+      <button id="zin" aria-label="Zoom in">+</button>
+      <button id="zout" aria-label="Zoom out">&minus;</button>
+      <button id="zfit" aria-label="Fit to screen" style="font-size:11px">FIT</button>
+    </div>
+    <div id="guide" class="chip" hidden></div>
+
+    <div id="gate">
+      <div class="box">
+        <h2>Hold the phone up</h2>
+        <p>This turns your iPhone into a window on the sky above Penn&nbsp;Quarter. Allow motion &amp; compass access, then raise the phone overhead with the screen facing you &mdash; the same way you held it to take the photo.</p>
+        <button class="go" id="askmotion">Enable motion &amp; compass</button>
+        <button class="alt" id="skipmotion">No sensors &mdash; let me drag to look around</button>
+      </div>
+    </div>
+
+    <section id="report">__REPORT__</section>
+  </div>
+
+  <div id="card" role="dialog" aria-label="Object details"></div>
+
+  <div id="sheet">
+    <div class="grab"></div>
+    <h3>Overlays</h3>
+    <div class="toggles" id="toggles"></div>
+    <div class="slider" id="brightrow">
+      <label for="bright">Exposure</label>
+      <input type="range" id="bright" min="60" max="260" value="100">
+      <output id="brightv">1.00&times;</output>
+    </div>
+    <div class="slider" id="compassrow" hidden>
+      <label for="cal">Compass</label>
+      <input type="range" id="cal" min="-40" max="40" value="0">
+      <output id="calv">0&deg;</output>
+    </div>
+  </div>
+
+  <nav id="tabs" role="tablist">
+    <button role="tab" data-mode="photo" aria-selected="true">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.4"/><path d="M3 16l5-4 4 3 3-2 6 4"/></svg>Photo</button>
+    <button role="tab" data-mode="ar" aria-selected="false">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/><circle cx="12" cy="12" r="2"/></svg>Sky</button>
+    <button role="tab" data-mode="layers" aria-selected="false">
+      <svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>Layers</button>
+    <button role="tab" data-mode="report" aria-selected="false">
+      <svg viewBox="0 0 24 24"><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5"/><path d="M8.5 13h7M8.5 17h5"/></svg>Solve</button>
+  </nav>
+</div>
+
+<script type="application/json" id="skydata">__SKYDATA__</script>
+<script>
+"use strict";
+const IMG_SRC = "__IMAGE__";
+const S = JSON.parse(document.getElementById("skydata").textContent);
+const G = S.geom, PW = G.W, PH = G.H;
+const D2R = Math.PI/180, R2D = 180/Math.PI;
+const STAR = {}; S.stars.forEach(s => STAR[s.n] = s);
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------------- layers ---------------- */
+const LAYERS = [
+  {k:'fig',  name:'Constellations', c:'#7A88DE', on:true},
+  {k:'star', name:'Star names',     c:'#F0B24A', on:true},
+  {k:'dso',  name:'Deep sky',       c:'#7FD1A8', on:true},
+  {k:'mw',   name:'Milky Way',      c:'#9AA6D8', on:false},
+  {k:'grid', name:'RA / Dec grid',  c:'#6FD3E8', on:false},
+  {k:'dust', name:'Photo stars',    c:'#C9D2F0', on:false}
+];
+const L = {}; LAYERS.forEach(l => L[l.k] = l.on);
+try{ const sv = JSON.parse(localStorage.getItem('zow.layers')||'null');
+     if(sv) Object.keys(L).forEach(k => { if(k in sv) L[k] = !!sv[k]; }); }catch(e){}
+
+const tgWrap = document.getElementById('toggles');
+LAYERS.forEach(l => {
+  const b = document.createElement('button');
+  b.className = 'tg'; b.style.setProperty('--c', l.c);
+  b.setAttribute('aria-pressed', L[l.k]);
+  b.innerHTML = '<span class="dot"></span>' + l.name;
+  b.onclick = () => { L[l.k] = !L[l.k]; b.setAttribute('aria-pressed', L[l.k]);
+    try{ localStorage.setItem('zow.layers', JSON.stringify(L)); }catch(e){}; draw(); };
+  tgWrap.appendChild(b);
+});
+
+/* ---------------- canvas ---------------- */
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let cw = 0, ch = 0, dpr = 1;
+function resize(){
+  const r = cv.getBoundingClientRect();
+  dpr = Math.min(window.devicePixelRatio||1, 2.5);
+  cw = r.width; ch = r.height;
+  cv.width = Math.round(cw*dpr); cv.height = Math.round(ch*dpr);
+  if(mode==='photo' && !view.set) cover();
+  draw();
+}
+addEventListener('resize', resize);
+
+/* ---------------- photo view transform ---------------- */
+const view = {s:1, tx:0, ty:0, set:false};
+const fitS   = () => Math.min(cw/PW, ch/PH);
+const coverS = () => Math.max(cw/PW, ch/PH);
+function setScale(s){
+  view.s = s;
+  view.tx = (cw - PW*view.s)/2; view.ty = (ch - PH*view.s)/2;
+  view.set = true; clampView();
+}
+const cover  = () => setScale(coverS());
+const fitAll = () => setScale(fitS());
+function clampView(){
+  const minS = fitS()*0.92;
+  view.s = Math.max(minS, Math.min(view.s, minS*14));
+  const w = PW*view.s, h = PH*view.s;
+  view.tx = w <= cw ? (cw-w)/2 : Math.max(cw-w, Math.min(0, view.tx));
+  view.ty = h <= ch ? (ch-h)/2 : Math.max(ch-h, Math.min(0, view.ty));
+}
+const P = (x,y) => [x*view.s + view.tx, y*view.s + view.ty];
+
+/* ---------------- astronomy ---------------- */
+const YEARS = (Date.now()/86400000 + 2440587.5 - 2451545.0)/365.25;
+function precess(ra, dec){
+  const r = ra*D2R, d = dec*D2R;
+  const dra  = (3.07496 + 1.33621*Math.sin(r)*Math.tan(d)) * YEARS * 15/3600;
+  const ddec = (20.0431*Math.cos(r)) * YEARS / 3600;
+  return [ra + dra, dec + ddec];
+}
+function lstDeg(){
+  const jd = Date.now()/86400000 + 2440587.5;
+  const T = (jd - 2451545.0)/36525;
+  let g = 280.46061837 + 360.98564736629*(jd-2451545.0) + 0.000387933*T*T - T*T*T/38710000;
+  return (((g + G.lon) % 360) + 360) % 360;
+}
+const LATR = G.lat*D2R;
+function eqToVec(ra, dec, lst){
+  const H = (lst - ra)*D2R, d = dec*D2R;
+  const sa = Math.sin(d)*Math.sin(LATR) + Math.cos(d)*Math.cos(LATR)*Math.cos(H);
+  const alt = Math.asin(Math.max(-1, Math.min(1, sa)));
+  const az = Math.atan2(-Math.cos(d)*Math.sin(H),
+                         Math.sin(d)*Math.cos(LATR) - Math.cos(d)*Math.sin(LATR)*Math.cos(H));
+  const ca = Math.cos(alt);
+  return [ca*Math.sin(az), ca*Math.cos(az), Math.sin(alt)];   /* east, north, up */
+}
+
+/* ---------------- AR orientation ---------------- */
+const cam = {fwd:[0,0,1], right:[1,0,0], up:[0,1,0], fov:70, live:false, drag:false};
+let dragYaw = G.center.az, dragPitch = 74, calib = 0;
+try{ calib = +(localStorage.getItem('zow.cal')||0); }catch(e){}
+
+function setCamFromAngles(azDeg, altDeg){
+  const a = azDeg*D2R, e = altDeg*D2R;
+  const ca = Math.cos(e);
+  cam.fwd = [ca*Math.sin(a), ca*Math.cos(a), Math.sin(e)];
+  /* screen-right is horizontal, perpendicular to the bearing */
+  cam.right = [Math.cos(a), -Math.sin(a), 0];
+  cam.up = cross(cam.right, cam.fwd);
+}
+function cross(a,b){ return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
+function dot(a,b){ return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+
+function setCamFromDevice(alpha, beta, gamma, screenAngle){
+  const x = beta*D2R, y = gamma*D2R, z = alpha*D2R;
+  const cX=Math.cos(x), cY=Math.cos(y), cZ=Math.cos(z);
+  const sX=Math.sin(x), sY=Math.sin(y), sZ=Math.sin(z);
+  /* R maps device axes -> world (X east, Y north, Z up), intrinsic Z-X'-Y'' */
+  const m = [
+    cZ*cY - sZ*sX*sY,  -cX*sZ,  cZ*sY + cY*sZ*sX,
+    cY*sZ + cZ*sX*sY,   cZ*cX,  sZ*sY - cZ*cY*sX,
+    -cX*sY,             sX,     cX*cY
+  ];
+  const col = i => [m[i], m[i+3], m[i+6]];
+  let right = col(0), up = col(1), back = col(2);
+  const fwd = [-back[0], -back[1], -back[2]];        /* rear camera looks along -Z */
+  const t = -screenAngle*D2R, c = Math.cos(t), s = Math.sin(t);
+  const r2 = [right[0]*c + up[0]*s, right[1]*c + up[1]*s, right[2]*c + up[2]*s];
+  const u2 = [-right[0]*s + up[0]*c, -right[1]*s + up[1]*c, -right[2]*s + up[2]*c];
+  cam.fwd = fwd; cam.right = r2; cam.up = u2;
+}
+function screenAngle(){
+  if(screen.orientation && typeof screen.orientation.angle === 'number') return screen.orientation.angle;
+  return window.orientation || 0;
+}
+
+/* ---------------- projection ---------------- */
+let ARF = 1;
+function mapAR(v){
+  const t = dot(v, cam.fwd);
+  if(t <= 0.06) return null;
+  return [cw/2 + ARF*dot(v, cam.right)/t, ch/2 - ARF*dot(v, cam.up)/t];
+}
+let LST = 0;
+const vecCache = new Map();
+function skyVec(ra, dec, key){
+  if(key !== undefined){ const c = vecCache.get(key); if(c) return c; }
+  const p = precess(ra, dec);
+  const v = eqToVec(p[0], p[1], LST);
+  if(key !== undefined) vecCache.set(key, v);
+  return v;
+}
+function mapObj(o, key){
+  return mode === 'photo' ? (inCanvasPhoto(o) ? P(o.x, o.y) : null)
+                          : mapAR(skyVec(o.ra, o.de, key));
+}
+function inCanvasPhoto(o){
+  const p = P(o.x, o.y);
+  return p[0] > -140 && p[0] < cw+140 && p[1] > -90 && p[1] < ch+90;
+}
+
+/* ---------------- drawing ---------------- */
+const img = new Image();
+let imgReady = false;
+img.onload = () => { imgReady = true; draw(); };
+img.src = IMG_SRC;
+
+let bright = 1, figT = REDUCED ? 1 : 0, t0 = 0;
+function easeOut(t){ return 1 - Math.pow(1-t, 3); }
+
+let labelQ = [];
+function label(txt, x, y, font, fill, prio, off, centred){
+  labelQ.push({txt:txt, x:x, y:y, font:font, fill:fill, prio:prio, off:off||0, c:!!centred});
+}
+function flushLabels(){
+  labelQ.sort((a,b) => a.prio - b.prio);
+  const occ = [];
+  const free = r => !(r[0] < 2 || r[2] > cw-2 || r[1] < 2 || r[3] > ch-2) &&
+    !occ.some(o => !(r[2] < o[0] || r[0] > o[2] || r[3] < o[1] || r[1] > o[3]));
+  ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+  for(const l of labelQ){
+    ctx.font = l.font;
+    const w = ctx.measureText(l.txt).width;
+    const h = parseFloat(l.font.match(/([\d.]+)px/)[1]);
+    const cands = l.c
+      ? [[l.x - w/2, l.y + h*0.34]]
+      : [[l.x + l.off, l.y + h*0.34], [l.x - l.off - w, l.y + h*0.34],
+         [l.x - w/2, l.y - l.off - 2], [l.x - w/2, l.y + l.off + h*0.9]];
+    for(const c of cands){
+      const r = [c[0]-3, c[1]-h*0.82, c[0]+w+3, c[1]+h*0.24];
+      if(!free(r)) continue;
+      ctx.fillStyle = l.fill; ctx.fillText(l.txt, c[0], c[1]);
+      occ.push(r); break;
+    }
+  }
+  labelQ = [];
+}
+
+function draw(){
+  if(!cw) return;
+  labelQ = [];
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,cw,ch);
+  ARF = (ch/2) / Math.tan(cam.fov/2*D2R);
+  if(mode === 'photo') drawPhotoBase(); else drawSkyBase();
+  if(L.grid) drawGrid();
+  if(L.mw)   drawMilkyWay();
+  if(L.dust) drawDust();
+  if(L.fig)  drawFigures();
+  if(mode !== 'photo') drawFootprint();
+  if(L.dso)  drawDSO();
+  if(L.star) drawStars();
+  if(mode !== 'photo') drawHorizon();
+  flushLabels();
+}
+
+function drawPhotoBase(){
+  ctx.save();
+  ctx.fillStyle = '#04050A'; ctx.fillRect(0,0,cw,ch);
+  if(imgReady){
+    ctx.filter = 'brightness(' + bright + ')';
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, view.tx, view.ty, PW*view.s, PH*view.s);
+    ctx.filter = 'none';
+  }
+  ctx.restore();
+}
+function drawSkyBase(){
+  const g = ctx.createLinearGradient(0,0,0,ch);
+  g.addColorStop(0,'#070A16'); g.addColorStop(1,'#0B1024');
+  ctx.fillStyle = g; ctx.fillRect(0,0,cw,ch);
+}
+
+function drawDust(){
+  ctx.save();
+  for(let i=0;i<S.photo.length;i++){
+    const d = S.photo[i];
+    const p = mode==='photo' ? P(d[3],d[4]) : mapAR(skyVec(d[0],d[1],'p'+i));
+    if(!p || p[0]<-10 || p[0]>cw+10 || p[1]<-10 || p[1]>ch+10) continue;
+    const m = d[2];
+    const r = Math.max(.5, 2.6 - (m-3)*0.26);
+    ctx.globalAlpha = Math.max(.18, Math.min(.9, 1.15 - (m-3)*0.1));
+    ctx.fillStyle = '#C9D2F0';
+    ctx.beginPath(); ctx.arc(p[0],p[1],r,0,6.2832); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawGrid(){
+  ctx.save(); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(111,211,232,.24)';
+  ctx.setLineDash([4,5]);
+  if(mode === 'photo'){
+    const g = G.grid;
+    [...g.ra, ...g.dec].forEach(ln => ln.segs.forEach(seg => strokePath(seg.map(q => P(q[0],q[1])))));
+    ctx.setLineDash([]);
+    [...g.ra, ...g.dec].forEach(ln => { const s0 = ln.segs[0]; if(!s0) return;
+      const p = P(s0[0][0], s0[0][1]);
+      label(ln.label, p[0], p[1], '500 10px "IBM Plex Mono",ui-monospace,monospace',
+            'rgba(111,211,232,.8)', 60, 6); });
+  } else {
+    for(let rah=0; rah<24; rah++){
+      const pts=[]; for(let d=-30; d<=88; d+=3) pts.push(mapAR(skyVec(rah*15, d)));
+      strokeChunks(pts);
+    }
+    for(let dd=-30; dd<=80; dd+=10){
+      const pts=[]; for(let ra=0; ra<=360; ra+=4) pts.push(mapAR(skyVec(ra, dd)));
+      strokeChunks(pts);
+    }
+  }
+  ctx.restore();
+}
+
+function drawMilkyWay(){
+  ctx.save();
+  if(mode === 'photo'){
+    ctx.strokeStyle = 'rgba(154,166,216,.5)'; ctx.lineWidth = 2;
+    G.galeq.forEach(seg => strokePath(seg.map(q => P(q[0],q[1]))));
+    ctx.strokeStyle = 'rgba(154,166,216,.2)'; ctx.lineWidth = 1; ctx.setLineDash([3,6]);
+    G.galb.forEach(b => b.forEach(seg => strokePath(seg.map(q => P(q[0],q[1])))));
+    ctx.setLineDash([]);
+    const mid = G.galeq[0] && G.galeq[0][Math.floor(G.galeq[0].length/2)];
+    if(mid){ const p = P(mid[0], mid[1]);
+      label('galactic equator', p[0], p[1], 'italic 400 15px "Cormorant Garamond",Georgia,serif',
+            'rgba(154,166,216,.85)', 30, 9); }
+  }
+  ctx.restore();
+}
+
+function strokePath(pts){
+  ctx.beginPath();
+  pts.forEach((p,i) => i ? ctx.lineTo(p[0],p[1]) : ctx.moveTo(p[0],p[1]));
+  ctx.stroke();
+}
+function strokeChunks(pts){
+  let run = [];
+  const flush = () => { if(run.length>1) strokePath(run); run = []; };
+  for(const p of pts){
+    if(!p){ flush(); continue; }
+    if(run.length){ const q = run[run.length-1];
+      if(Math.abs(p[0]-q[0]) > cw*1.2 || Math.abs(p[1]-q[1]) > ch*1.2){ flush(); } }
+    run.push(p);
+  }
+  flush();
+}
+
+function drawFigures(){
+  ctx.save();
+  ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+  S.figs.forEach(f => {
+    f.segs.forEach(sg => {
+      let a, b;
+      if(mode === 'photo'){ a = P(sg[0],sg[1]); b = P(sg[2],sg[3]); }
+      else {
+        const A = STAR[sg[4]], B = STAR[sg[5]]; if(!A||!B) return;
+        a = mapAR(skyVec(A.ra,A.de,'s'+sg[4])); b = mapAR(skyVec(B.ra,B.de,'s'+sg[5]));
+        if(!a||!b) return;
+      }
+      const bx = a[0] + (b[0]-a[0])*figT, by = a[1] + (b[1]-a[1])*figT;
+      ctx.strokeStyle = 'rgba(122,136,222,.62)';
+      ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(bx,by); ctx.stroke();
+    });
+  });
+  if(figT > .82){
+    const fs = (mode==='photo' ? 21 : 18);
+    S.figs.forEach(f => {
+      let sx=0, sy=0, n=0;
+      f.segs.forEach(sg => {
+        let a,b;
+        if(mode==='photo'){ a=P(sg[0],sg[1]); b=P(sg[2],sg[3]); }
+        else { const A=STAR[sg[4]],B=STAR[sg[5]]; if(!A||!B) return;
+               a=mapAR(skyVec(A.ra,A.de,'s'+sg[4])); b=mapAR(skyVec(B.ra,B.de,'s'+sg[5])); if(!a||!b) return; }
+        sx+=a[0]+b[0]; sy+=a[1]+b[1]; n+=2;
+      });
+      if(!n) return;
+      sx/=n; sy/=n;
+      if(sx<30||sx>cw-30||sy<24||sy>ch-16) return;
+      label(f.name, sx, sy, 'italic 400 ' + fs + 'px "Cormorant Garamond",Georgia,serif',
+            'rgba(150,163,238,.92)', 0, 0, true);
+    });
+  }
+  ctx.restore();
+}
+
+function drawStars(){
+  ctx.save();
+  const zoomed = mode==='photo' ? view.s/Math.min(cw/PW,ch/PH) : 70/cam.fov;
+  S.stars.forEach(s => {
+    if(mode==='photo' && !s.f) return;
+    const p = mapObj(s, 's'+s.n);
+    if(!p || p[0]<-40||p[0]>cw+40||p[1]<-30||p[1]>ch+30) return;
+    const r = Math.max(3, 9.5 - s.m*1.5);
+    ctx.strokeStyle = 'rgba(240,178,74,.85)'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(p[0],p[1],r,0,6.2832); ctx.stroke();
+    const cut = zoomed > 2.4 ? 9 : zoomed > 1.3 ? 4.0 : 3.05;
+    if(s.m < cut){
+      label(s.n, p[0], p[1], '500 12px "IBM Plex Sans",system-ui,sans-serif',
+            s.m < 3.0 ? '#F5D8A0' : 'rgba(232,213,178,.84)', 10 + s.m, r + 5);
+    }
+  });
+  ctx.restore();
+}
+
+const SHOWPIECE = {'M31':1,'NGC 7000':1,'M39':1,'NGC 7243':1,'M52':1,'M15':1,
+                   'IC 1396':1,'NGC 6960':1,'NGC 7023':1,'M27':1};
+function drawDSO(){
+  ctx.save();
+  const zoomed = mode==='photo' ? view.s/coverS() : 70/cam.fov;
+  S.dso.forEach(o => {
+    const tiny = (o.n === 'M32' || o.n === 'M110');
+    if(tiny && zoomed < 2.2) return;
+    const p = mapObj(o, 'd'+o.n);
+    if(!p || p[0]<-40||p[0]>cw+40||p[1]<-30||p[1]>ch+30) return;
+    ctx.strokeStyle = 'rgba(127,209,168,.85)'; ctx.lineWidth = 1.4;
+    const r = 11;
+    if(o.t === 'galaxy'){
+      ctx.beginPath(); ctx.ellipse(p[0],p[1],r*1.35,r*0.55,-0.5,0,6.2832); ctx.stroke();
+    } else if(o.t === 'globular'){
+      ctx.beginPath(); ctx.arc(p[0],p[1],r,0,6.2832); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p[0]-r,p[1]); ctx.lineTo(p[0]+r,p[1]);
+      ctx.moveTo(p[0],p[1]-r); ctx.lineTo(p[0],p[1]+r); ctx.stroke();
+    } else if(o.t === 'cluster'){
+      ctx.setLineDash([3,3.5]); ctx.beginPath(); ctx.arc(p[0],p[1],r,0,6.2832); ctx.stroke();
+      ctx.setLineDash([]);
+    } else {
+      ctx.strokeRect(p[0]-r, p[1]-r*0.8, r*2, r*1.6);
+    }
+    if(SHOWPIECE[o.n] || zoomed > 1.3)
+      label(o.n, p[0], p[1], '500 11px "IBM Plex Mono",ui-monospace,monospace',
+            'rgba(150,224,190,.92)', SHOWPIECE[o.n] ? 22 : 40, r + 5);
+  });
+  ctx.restore();
+}
+
+function drawFootprint(){
+  const pts = G.footprint.map((q,i) => mapAR(skyVec(q[0], q[1], 'f'+i)));
+  ctx.save();
+  ctx.strokeStyle = 'rgba(240,178,74,.8)'; ctx.lineWidth = 2; ctx.setLineDash([9,6]);
+  strokeChunks(pts); ctx.setLineDash([]);
+  const c = mapAR(skyVec(G.center.ra, G.center.dec, 'ctr'));
+  if(c){
+    ctx.strokeStyle = 'rgba(240,178,74,.95)'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(c[0],c[1],17,0,6.2832); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(c[0]-25,c[1]); ctx.lineTo(c[0]-8,c[1]);
+    ctx.moveTo(c[0]+8,c[1]); ctx.lineTo(c[0]+25,c[1]);
+    ctx.moveTo(c[0],c[1]-25); ctx.lineTo(c[0],c[1]-8);
+    ctx.moveTo(c[0],c[1]+8); ctx.lineTo(c[0],c[1]+25); ctx.stroke();
+    label('YOUR FRAME', c[0], c[1]+40, '500 10px "IBM Plex Mono",ui-monospace,monospace',
+          'rgba(240,178,74,.95)', 1, 0, true);
+  }
+  ctx.restore();
+}
+
+function drawHorizon(){
+  ctx.save();
+  const pts = []; for(let a=0; a<=360; a+=2){
+    const r = a*D2R; pts.push(mapAR([Math.sin(r), Math.cos(r), 0]));
+  }
+  ctx.strokeStyle = 'rgba(139,148,178,.5)'; ctx.lineWidth = 1.5; strokeChunks(pts);
+  [['N',0],['E',90],['S',180],['W',270]].forEach(([lab,az]) => {
+    const r = az*D2R, p = mapAR([Math.sin(r), Math.cos(r), 0.06]);
+    if(p) label(lab, p[0], p[1], '500 13px "IBM Plex Mono",ui-monospace,monospace',
+                'rgba(139,148,178,.95)', 5, 0, true);
+  });
+  const z = mapAR([0,0,1]);
+  if(z && z[0]>0 && z[0]<cw && z[1]>0 && z[1]<ch){
+    ctx.strokeStyle = 'rgba(111,211,232,.6)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(z[0],z[1],6,0,6.2832); ctx.stroke();
+    label('ZENITH', z[0], z[1]-13, '500 10px "IBM Plex Mono",ui-monospace,monospace',
+          'rgba(111,211,232,.9)', 4, 0, true);
+  }
+  ctx.restore();
+}
+
+/* ---------------- object card ---------------- */
+const card = document.getElementById('card');
+const STARNOTE = {
+  'Deneb':'The tail of the Swan and the top of the Summer Triangle. One of the most luminous stars visible to the eye, roughly 1,500 light years away, so its brightness here is a feat of distance, not proximity.',
+  'Alpheratz':'Shared star: it forms the northeast corner of the Great Square of Pegasus while formally belonging to Andromeda.',
+  'Scheat':'A red giant that visibly varies in brightness. It is the northwest corner of the Great Square.',
+  'Markab':'The southwest corner of the Great Square of Pegasus.',
+  'Enif':'The nose of the horse, an orange supergiant, and the brightest star in Pegasus.',
+  'Caph':'The leading star of the W of Cassiopeia, and a useful marker: it sits almost exactly on the 0h line of right ascension.',
+  'Schedar':'The bright orange anchor of Cassiopeia.',
+  'Alderamin':'Alpha Cephei, spinning so fast it is visibly flattened. Precession will make it the pole star around the year 7500.',
+  'Sadr':'The heart of the Northern Cross, buried in the Milky Way\u2019s Cygnus star clouds.',
+  'Alfirk':'The prototype Beta Cephei variable: it pulses in brightness every 4.6 hours.',
+  'Tsih':'Gamma Cassiopeiae, an unstable shell star that throws off gas and changes brightness unpredictably.',
+  'nu And':'One of the two \u201cpointer\u201d stars: a line from Mirach through mu and nu Andromedae lands on the Andromeda Galaxy.'
+};
+function showCard(o, kind){
+  const isStar = kind === 'star';
+  const ra = o.ra/15, rh = Math.floor(ra), rm = (ra-rh)*60;
+  const de = Math.abs(o.de), dd = Math.floor(de), dm = (de-dd)*60;
+  const coord = rh + 'h ' + Math.floor(rm) + 'm ' + Math.round((rm%1)*60) + 's, ' +
+                (o.de<0?'\u2212':'+') + dd + '\u00b0 ' + Math.floor(dm) + '\u2032';
+  const note = isStar ? (STARNOTE[o.n] || '') : o.d;
+  card.innerHTML =
+    '<div class="row"><div><div class="nm">' + o.n + '</div>' +
+    '<div class="bay">' + (isStar ? (o.b + ' \u00b7 ' + o.c) : o.t) + '</div></div>' +
+    '<button class="x" aria-label="Close">\u00d7</button></div>' +
+    '<dl><dt>Magnitude</dt><dd>' + o.m.toFixed(2) + '</dd>' +
+    '<dt>RA / Dec</dt><dd>' + coord + ' (J2000)</dd>' +
+    (o.s ? '<dt>Apparent size</dt><dd>' + o.s + '</dd>' : '') +
+    (isStar && o.d != null ? '<dt>Fit residual</dt><dd>' + o.d.toFixed(1) + ' px from the measured source</dd>' : '') +
+    '</dl>' + (note ? '<p class="note">' + note + '</p>' : '');
+  card.querySelector('.x').onclick = () => card.classList.remove('on');
+  card.classList.add('on');
+}
+function hitTest(sx, sy){
+  let best = null, bd = 30*30;
+  const test = (o, kind, key) => {
+    const p = mapObj(o, key); if(!p) return;
+    const d = (p[0]-sx)**2 + (p[1]-sy)**2;
+    if(d < bd){ bd = d; best = [o, kind]; }
+  };
+  if(L.dso)  S.dso.forEach(o => test(o, 'dso', 'd'+o.n));
+  if(L.star) S.stars.forEach(o => { if(mode==='photo' && !o.f) return; test(o, 'star', 's'+o.n); });
+  return best;
+}
+
+/* ---------------- gestures ---------------- */
+let ptrs = new Map(), pinch0 = null, tapT = 0, tapXY = null, moved = 0;
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  moved = 0;
+  if(ptrs.size === 2) pinch0 = pinchState();
+});
+cv.addEventListener('pointermove', e => {
+  if(!ptrs.has(e.pointerId)) return;
+  const prev = ptrs.get(e.pointerId);
+  const dx = e.clientX - prev[0], dy = e.clientY - prev[1];
+  moved += Math.abs(dx) + Math.abs(dy);
+  ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if(ptrs.size === 2 && pinch0){
+    const n = pinchState();
+    if(mode === 'photo'){
+      const k = n.d / pinch0.d;
+      const r = cv.getBoundingClientRect();
+      const ax = pinch0.x - r.left, ay = pinch0.y - r.top;
+      const px = (ax - view.tx)/view.s, py = (ay - view.ty)/view.s;
+      view.s *= k; clampView();
+      view.tx = ax - px*view.s; view.ty = ay - py*view.s; clampView();
+    } else {
+      cam.fov = Math.max(24, Math.min(110, cam.fov * (pinch0.d/n.d)));
+    }
+    pinch0 = n; draw(); return;
+  }
+  if(ptrs.size === 1){
+    if(mode === 'photo'){ view.tx += dx; view.ty += dy; clampView(); }
+    else if(!cam.live){
+      dragYaw -= dx * cam.fov/ch; dragPitch = Math.max(-85, Math.min(89.5, dragPitch + dy * cam.fov/ch));
+      setCamFromAngles(dragYaw, dragPitch);
+    }
+    draw();
+  }
+});
+function pinchState(){
+  const v = [...ptrs.values()];
+  return {d: Math.hypot(v[0][0]-v[1][0], v[0][1]-v[1][1]),
+          x: (v[0][0]+v[1][0])/2, y: (v[0][1]+v[1][1])/2};
+}
+function endPtr(e){
+  if(ptrs.size < 2) pinch0 = null;
+  ptrs.delete(e.pointerId);
+  if(ptrs.size === 0 && moved < 9){
+    const r = cv.getBoundingClientRect();
+    const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    const now = Date.now();
+    if(mode === 'photo' && tapXY && now - tapT < 320 &&
+       Math.hypot(sx-tapXY[0], sy-tapXY[1]) < 34){
+      const base = coverS();
+      const target = view.s > base*2.0 ? base : base*3.2;
+      const px = (sx-view.tx)/view.s, py = (sy-view.ty)/view.s;
+      view.s = target; clampView();
+      view.tx = sx - px*view.s; view.ty = sy - py*view.s; clampView();
+      tapXY = null; draw(); return;
+    }
+    tapT = now; tapXY = [sx, sy];
+    const hit = hitTest(sx, sy);
+    if(hit) showCard(hit[0], hit[1]); else card.classList.remove('on');
+  }
+}
+cv.addEventListener('pointerup', endPtr);
+cv.addEventListener('pointercancel', endPtr);
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  if(mode === 'photo'){
+    const r = cv.getBoundingClientRect();
+    const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    const px = (sx-view.tx)/view.s, py = (sy-view.ty)/view.s;
+    view.s *= Math.exp(-e.deltaY*0.0016); clampView();
+    view.tx = sx - px*view.s; view.ty = sy - py*view.s; clampView();
+  } else {
+    cam.fov = Math.max(24, Math.min(110, cam.fov * Math.exp(e.deltaY*0.0012)));
+  }
+  draw();
+}, {passive:false});
+
+function zoomBy(k){
+  const px = (cw/2 - view.tx)/view.s, py = (ch/2 - view.ty)/view.s;
+  view.s *= k; clampView();
+  view.tx = cw/2 - px*view.s; view.ty = ch/2 - py*view.s; clampView(); draw();
+}
+document.getElementById('zin').onclick  = () => zoomBy(1.6);
+document.getElementById('zout').onclick = () => zoomBy(1/1.6);
+document.getElementById('zfit').onclick = () => { fitAll(); draw(); };
+
+/* ---------------- sliders ---------------- */
+const brightEl = document.getElementById('bright'), brightV = document.getElementById('brightv');
+brightEl.oninput = () => { bright = brightEl.value/100; brightV.textContent = bright.toFixed(2)+'\u00d7'; draw(); };
+const calEl = document.getElementById('cal'), calV = document.getElementById('calv');
+calEl.value = calib; calV.textContent = calib + '\u00b0';
+calEl.oninput = () => { calib = +calEl.value; calV.textContent = calib + '\u00b0';
+  try{ localStorage.setItem('zow.cal', calib); }catch(e){} };
+
+/* ---------------- device orientation ---------------- */
+let haveHeading = false;
+function onOrient(e){
+  if(e.alpha == null && e.webkitCompassHeading == null) return;
+  let alpha = e.alpha || 0;
+  if(typeof e.webkitCompassHeading === 'number'){
+    alpha = 360 - e.webkitCompassHeading; haveHeading = true;
+  } else if(e.absolute){ haveHeading = true; }
+  setCamFromDevice(alpha + calib, e.beta || 0, e.gamma || 0, screenAngle());
+  cam.live = true;
+}
+function startSensors(){
+  const DOE = window.DeviceOrientationEvent;
+  const attach = () => {
+    addEventListener('deviceorientation', onOrient, true);
+    if('ondeviceorientationabsolute' in window)
+      addEventListener('deviceorientationabsolute', onOrient, true);
+  };
+  if(DOE && typeof DOE.requestPermission === 'function'){
+    DOE.requestPermission().then(r => {
+      if(r === 'granted'){ attach(); gate.classList.remove('on'); }
+      else { cam.drag = true; gate.classList.remove('on'); }
+      setMode('ar', true);
+    }).catch(() => { cam.drag = true; gate.classList.remove('on'); setMode('ar', true); });
+  } else {
+    attach(); gate.classList.remove('on'); setMode('ar', true);
+  }
+}
+const gate = document.getElementById('gate');
+document.getElementById('askmotion').onclick = startSensors;
+document.getElementById('skipmotion').onclick = () => {
+  cam.drag = true; cam.live = false; gate.classList.remove('on');
+  setCamFromAngles(dragYaw, dragPitch); setMode('ar', true);
+};
+
+/* ---------------- guidance ---------------- */
+const guide = document.getElementById('guide'), readout = document.getElementById('readout');
+function updateHUD(){
+  if(mode !== 'ar'){ return; }
+  const alt = Math.asin(Math.max(-1,Math.min(1,cam.fwd[2])))*R2D;
+  let az = Math.atan2(cam.fwd[0], cam.fwd[1])*R2D; if(az < 0) az += 360;
+  const COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  readout.innerHTML = 'alt <b>' + alt.toFixed(1) + '\u00b0</b> &nbsp; az <b>' + az.toFixed(0) +
+    '\u00b0 ' + COMPASS[Math.round(az/22.5)%16] + '</b><br>fov <b>' + cam.fov.toFixed(0) + '\u00b0</b>' +
+    (cam.live ? (haveHeading ? ' &nbsp;compass' : ' &nbsp;<span style="color:#F0B24A">no compass</span>') : ' &nbsp;drag');
+  const c = skyVec(G.center.ra, G.center.dec, 'ctr');
+  const sep = Math.acos(Math.max(-1, Math.min(1, dot(c, cam.fwd))))*R2D;
+  const calt = Math.asin(Math.max(-1,Math.min(1,c[2])))*R2D;
+  if(calt < 0){
+    guide.className = 'chip';
+    guide.innerHTML = 'That patch of sky has set &mdash; it is <b>' + Math.abs(calt).toFixed(0) +
+      '\u00b0 below the horizon</b> right now. It rises again before dawn.';
+  } else if(sep < 12){
+    guide.className = 'chip hit';
+    guide.innerHTML = 'You are looking at it. This is your photo\u2019s field, live.';
+  } else {
+    const dAlt = calt - Math.asin(Math.max(-1,Math.min(1,cam.fwd[2])))*R2D;
+    let caz = Math.atan2(c[0], c[1])*R2D; if(caz<0) caz += 360;
+    let turn = caz - az; if(turn > 180) turn -= 360; if(turn < -180) turn += 360;
+    guide.className = 'chip';
+    guide.innerHTML = '<b>' + sep.toFixed(0) + '\u00b0</b> to your frame &mdash; turn ' +
+      (turn > 0 ? 'right ' : 'left ') + '<b>' + Math.abs(turn).toFixed(0) + '\u00b0</b>, ' +
+      (dAlt > 0 ? 'tilt up ' : 'tilt down ') + '<b>' + Math.abs(dAlt).toFixed(0) + '\u00b0</b>';
+  }
+}
+
+/* ---------------- modes ---------------- */
+let mode = 'photo';
+const sheet = document.getElementById('sheet'), report = document.getElementById('report');
+const tabs = [...document.querySelectorAll('#tabs button')];
+function setMode(m, keep){
+  if(m === 'layers'){
+    sheet.classList.toggle('on');
+    tabs.forEach(t => t.setAttribute('aria-selected', t.dataset.mode === 'layers' && sheet.classList.contains('on')));
+    if(!sheet.classList.contains('on')) tabs.forEach(t => t.setAttribute('aria-selected', t.dataset.mode === mode));
+    return;
+  }
+  sheet.classList.remove('on');
+  card.classList.remove('on');
+  mode = m;
+  tabs.forEach(t => t.setAttribute('aria-selected', t.dataset.mode === m));
+  report.classList.toggle('on', m === 'report');
+  document.getElementById('zoombtns').hidden = (m !== 'photo');
+  document.getElementById('brightrow').hidden = (m !== 'photo');
+  document.getElementById('compassrow').hidden = (m !== 'ar');
+  readout.hidden = (m !== 'ar');
+  guide.hidden = (m !== 'ar');
+  if(m === 'ar'){
+    if(!keep && !cam.live && !cam.drag){ gate.classList.add('on'); }
+    vecCache.clear(); LST = lstDeg();
+    if(!cam.live) setCamFromAngles(dragYaw, dragPitch);
+  } else {
+    gate.classList.remove('on');
+  }
+  if(m === 'photo' && !view.set) cover();
+  draw();
+}
+tabs.forEach(t => t.onclick = () => setMode(t.dataset.mode));
+
+/* ---------------- loop ---------------- */
+let lastLST = 0;
+function loop(ts){
+  if(!t0) t0 = ts;
+  if(figT < 1 && !REDUCED){
+    figT = Math.min(1, easeOut((ts - t0 - 250)/1250));
+    if(figT < 0) figT = 0;
+    draw();
+  }
+  if(mode === 'ar'){
+    if(ts - lastLST > 2000){ lastLST = ts; LST = lstDeg(); vecCache.clear(); }
+    draw(); updateHUD();
+  }
+  requestAnimationFrame(loop);
+}
+
+resize();
+setMode('photo');
+requestAnimationFrame(loop);
+</script>
