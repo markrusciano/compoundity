@@ -5944,7 +5944,7 @@
       var fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
       var timeout = new Promise(function (r) { setTimeout(r, 2500); });
       Promise.race([fontsReady, timeout]).then(function () {
-        LB.boot();
+        try { LB.boot(); } catch (e) { console.error('[boot] ' + (e && e.stack || e)); }
         requestAnimationFrame(function () { resolve(true); });
       });
     }
