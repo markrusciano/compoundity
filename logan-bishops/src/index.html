@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Logan Bishops</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@500;700;800;900&family=Mochiy+Pop+One&family=Pacifico&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* base styles only; ui.js injects the Vine app chrome styles */
+  html, body { margin: 0; padding: 0; background: #e9ecea; color: #222; }
+  body { font-family: 'Source Sans 3', 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  .lb-stage { position: relative; width: 100%; aspect-ratio: 1 / 1; overflow: hidden; background: #0e1a33; user-select: none; -webkit-user-select: none; }
+  .lb-stage > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .lb-stage-only-mode, .lb-stage-only-mode body { background: #000; }
+  .lb-stage-only { width: min(100vw, 100vh); }
+  .lb-debug { position: fixed; left: 8px; bottom: 8px; z-index: 99; font: 600 14px/1 ui-monospace, Menlo, monospace; background: rgba(0,0,0,.7); color: #0f0; padding: 6px 8px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<!-- order matters: core first, main last. tools/build.cjs inlines every local script below into one file. -->
+<script src="core.js"></script>
+<script src="face.js"></script>
+<script src="char-king.js"></script>
+<script src="char-friar.js"></script>
+<script src="char-bishop.js"></script>
+<script src="scene.js"></script>
+<script src="fx.js"></script>
+<script src="audio.js"></script>
+<script src="ui.js"></script>
+<script src="director.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
