@@ -91,7 +91,7 @@ rot          whole-body rotation in degrees about the feet origin
 sx, sy       squash/stretch about the feet origin (default 1, 1); anime bounce = sx 1.06, sy 0.94
 lean         upper-body lean in degrees, pivot at hips
 bob          upper-body vertical offset in units (negative = up)
-breathe      0..1 amount of loop-safe idle breathing (default 0.5)
+breathe      0..1 amount of loop-safe idle breathing (default 0: the photo stillness is the joke)
 headTilt     degrees (overrides neutral tilt when present)
 headTurn     -1..1 three-quarter turn of the face (features shift sideways, hair parallax); 0 = facing camera
 eyes         expression name (see expression vocabulary)
@@ -105,21 +105,132 @@ shadowFace   0..1 dramatic upper-face shadow (the "menacing" anime look: dark ba
 glow         0..1 rim-light / aura around the silhouette
 silhouette   0..1 fill the whole character with one flat color (for impact frames); color in silhouetteColor
 silhouetteColor  '#000' default
-armL, armR   { sh, el } shoulder and elbow angles in degrees, relative to the neutral pose (0,0 = photo pose)
+armL, armR   optional { sh, el } shoulder and elbow angle offsets in degrees (named poses are the main interface)
 pose         optional named pose preset (character specific; see below) applied before the numeric fields
 ```
 
-### Expression vocabulary (shared via `LB.face`, same names for all three)
-Filled in from the final storyboard, see section "Expressions required by the storyboard" below.
+`silhouette` uses `LB.silhouette(root, on, color)` from core (a CSS class that paints every shape one color; mark
+highlights/glows with `data-sil="hide"` so they vanish). `hidden: true` hides the whole character (`LB.show(root, false)`).
 
-## Scene, fx, audio, ui, director
-See the sections below; each lists its state fields. Director output per frame:
+### Expression vocabulary (`LB.face`, same names for all three; first name = default)
+| field | names |
+|---|---|
+| `eyes` | `deadpan`, `closed`, `dot`, `hero`, `droop` |
+| `brows` | `flat`, `up`, `down`, `oneUp`, `sad` |
+| `mouth` | `closed`, `o`, `whistle`, `smirk`, `frown` |
+| floats | `gazeX`, `gazeY` (-1..1), `sweat` (0..1), `blush` (0..1) |
+See `docs/STORYBOARD.md` "Poses and expressions" for what each looks like and which character uses which.
+Unknown names must fall back to the default instead of throwing.
+
+### `LB.face` (face kit, owned by face.js, used by all three rigs)
 ```
-{
-  camera: {...},
-  scene:  {...},          // scene state, see Scene
-  chars:  { king: {...}, friar: {...}, bishop: {...} },
-  fx:     {...},          // fx state, see FX
-  ui:     {...}           // optional hints for the Vine chrome (rarely needed)
+LB.style            shared look constants (outline color, line widths, light direction, shadow alpha, palette) - see docs/STYLE.md
+LB.face.create(parentG, opts) -> { g, update(state) }
+  parentG : the rig's head group. Face-local origin (0,0) = midpoint between the two eyes, +x = viewer's right, units = world units.
+  opts    : { eyeSpacing, eyeW, eyeH, irisColor, lashColor, browColor, browW, browY, mouthY, mouthW,
+              mustache: bool (mouth shapes sit under/inside the mustache), lids: 'normal'|'heavy',
+              skin, skinShadow, sweatAt: {x, y}, cheekY }  (sensible defaults for every key)
+  update(state): reads eyes, brows, mouth, gazeX, gazeY, sweat, blush, headTurn from the character state.
+```
+Facial hair, glasses, hair, ears and head shape belong to each rig, not the face kit.
+
+### Character-specific fields (from the storyboard)
+| char | field | type / default | meaning |
+|---|---|---|---|
+| all | `hidden` | false | hide the whole character |
+| all | `pose` | `'photo'` | named pose preset |
+| king | `pose` | `'photo'`, `'raise'`, `'bonk'`, `'hide'`, `'peek'` | see STORYBOARD K_* |
+| king | `raise` | 0..1 (0) | photo -> raised; at raise 1 the knob is at about (500,222) |
+| king | `drop` | 0..1 (0) | used with pose 'bonk': drop 0 == raise 1 exactly; drop 1 = knob resting on the Friar's crown at about (500,258) |
+| king | `smear` | 0..1 (0) | two ghost scepters along the drop arc (40% and 20% opacity at smear 1) |
+| friar | `headSquash` | 1 | head scaleY about the neck |
+| friar | `glasses` | `'clear'` | `'clear'` or `'opaque'` (flat white lenses + small highlight, eyes hidden) |
+| friar | `glassesTilt` | 0 | degrees |
+| friar | `bump` | 0 | 0..1.1 scale of the cartoon bump on top of the hair (top of bump about y 236 in the photo pose) |
+| friar | `stars` | 0 | 0..1 visibility of the 3 orbiting yellow 4-point stars |
+| friar | `starSpin` | 0 | orbit phase in turns (director integrates speed) |
+| friar | `steeple` | 0 | 0..1 clasped hands rise from the waist to just under the beard (about y 400) |
+| bishop | `mitreStretch` | 1 | 1..1.4 mitre scaleY anchored at the headband |
+| bishop | `cast` | 0 | 0..1 right arm (screen-left) out of the cape toward the Friar, open hand near (565,370) at 1 |
+| bishop | `castGlow` | 0 | 0..1 green (#3CFF6E) glow ring around the hand (pre-baked radial gradient) |
+| bishop | `mustacheTwitch` | 0 | 0..1 mustache squash-and-stretch |
+
+### Anchors each rig must return from `anchor(name)` (world coords)
+- King: `head`, `knob` (gold scepter knob center), `crown`, `mouth`, `temple`
+- Friar: `head`, `bump` (top of the bump / top of hair if no bump), `glasses` (bridge), `lensR` (outer corner of the screen-right lens), `hands`
+- Bishop: `head`, `feet` (between the slides, on the floor), `hand` (right hand, screen-left), `mustache`, `mitreTop`
+
+## Scene (`scene.js`)
+`LB.register('scene', { create: function (stage) { ... return { update: function (sceneState, t, ctx) {} }; } })`
+Paints `stage.layers.bg` (room shell, windows, night city, billboard, arches, lamp, plant) and `stage.layers.mid`
+(island, desk, chairs, rug, slippers, floor items) and may use `stage.layers.fg`. Placement requirements are in STORYBOARD "Scene states".
+```
+sceneState = {
+  impact: 0..1,          // flat red #C8161E over the whole room (above bg+mid, below characters)
+  panel: null|'villain', // villain panel covering the whole view behind the characters
+  panelK: 0..1,          // panel opacity
+  bokeh: 0..1,           // shoujo bubbles in the mid layer behind the trio (intensity)
+  bokehPop: 0..1,        // 0 = normal; ramps 0->1 over a few frames when the bubbles pop out
+  billboardGlow: 1,      // brightness multiplier (0.6 dips, 1.3 boosted)
+  archesGlow: 1,         // brightness multiplier (flare up to 2.2)
 }
 ```
+Fixed world points (also in `LB.WORLD`): arches (590,225), billboard center (515,195), floor y 950.
+
+## FX (`fx.js`)
+`LB.register('fx', { create: function (stage, ctx) { ... return { update: function (fxState, t, ctx) {} }; } })`
+World-space effects go in `stage.layers.fxWorld`; screen-space ones in `stage.layers.fxScreen`; text cards in `stage.layers.text`.
+Positions `at` are either `{x, y}` world points or anchor refs like `'friar.lensR'`; resolve with `LB.resolveAt(ctx, at)`
+and convert to screen with `LB.worldToScreen(stage, p)` when drawing in screen space. The director owns WHEN (all timing);
+fx owns HOW (look and the motion inside each effect given its progress). Every field may be absent or null = effect off.
+```
+fxState = {
+  glints:      [{ at, k, rot, size }],     // kira 4-point CONCAVE star (curved arms), world space; k 0..1 envelope (scale*opacity); size world units at k=1 (default 36)
+  twinkles:    { k, pop },                 // small shoujo twinkles around the trio (world); k intensity, pop 0..1 burst-out progress
+  impactBurst: { k, at },                  // white starburst lines radiating from at (screen space), k 0..1
+  speedLines:  { mode, k, seed, at },      // mode 'radial' (centered on at's screen point, default frame center) | 'vertical'; seed int changes on twos
+  puff:        { p, at },                  // white cloud of 5 circles; p 0..1 progress (invisible at 0 and 1)
+  bishounen:   { k, p, at },               // translucent bubbles + twinkles drifting up from at (world); k intensity, p 0..1 drift progress
+  archesFlare: { k },                      // horizontal anamorphic streak (about 400 x 6) at LB.WORLD.arches, world space
+  heal:        { p, at },                  // green dots + soft 4-point twinkles falling onto at; p 0..1
+  notes:       { p, at },                  // ♪ glyphs rising and swaying from at; p 0..1 across the beat
+  gloom:       { k, at },                  // vertical blue-gray hatching + dark gradient over the head at at (world); k 0..1
+  focus:       { k, p, box },              // phone focus square: yellow #FFD60A four corner brackets, box [x0,y0,x1,y1] screen; p snap 0..1 (scale 1.25 -> 1)
+  flash:       0..1,                       // full-frame white overlay alpha (x0.5 under LB.reducedMotion)
+  cards:       [{ id, age, k }],           // text cards: id 'gon'|'arc'|'healer'|'hp'|'stamp'; age = seconds since the card started; k 0..1 opacity
+}
+```
+Card looks, strings, fonts, sizes, placement and entrance motion: STORYBOARD "On-screen text" (fx owns them, driven by `age`).
+
+## Audio (`audio.js`)
+`LB.register('audio', { init(ctx), update(t, loops), setMuted(bool), isMuted() })`
+- Muted by default. Nothing touches `AudioContext` until `setMuted(false)` is called from a user gesture (the UI's tap handler);
+  create/resume the context there (iOS Safari requirement).
+- Owns the cue sheet in STORYBOARD "Audio cue sheet". `update` is called every frame: schedule cues whose loop time falls in
+  the next ~0.2 s look-ahead window on the AudioContext clock (handle the wrap at `LB.D`); never double-schedule; stop
+  scheduling while `LB.clock.paused`. On unmute, start with the cues after the current time.
+- Master gain with a gentle limiter (DynamicsCompressor); overall level comfortable on phone speakers. Synthesis only.
+
+## UI (`ui.js`)
+`LB.register('ui', { create(appEl) -> stageContainerDiv, update(t, loops, uiHints) })`
+- Builds the Vine post around a square video: Vine green header with the cursive "Vine" wordmark (Pacifico), post header
+  (avatar, display name, @handle, location line, date), the square stage container (returned; main.js mounts the stage into it),
+  loop counter, like / comment / revine / more row with counts, caption with green hashtags. Values: STORYBOARD "Vine post chrome".
+- Tap on the video (or the speaker icon) toggles sound via `LB.mod.audio.setMuted()`; show the muted speaker icon on the video.
+- Loop counter: starts at 1,000,000,037 and +1 on each wrap (`LB.clock.onLoop`).
+- Injects its own `<style>`. Responsive: fills a 360-430 px phone width with no horizontal scroll; centered column (max about 480 px) on desktop.
+
+## Director (`director.js`)
+`LB.register('director', { duration: 6, frame: function (t, ctx) { return frameState; } })`
+```
+frameState = {
+  camera: { x, y, zoom, rot, shake },
+  scene:  sceneState,
+  chars:  { king: charState, friar: charState, bishop: charState },
+  fx:     fxState,
+  ui:     {}
+}
+```
+Implements every timing in STORYBOARD (camera keyframes table, beat table, FX list times, card times). Character pose and
+expression changes step on twos (`LB.onTwos(t)`); camera, glows, sparkles and speed lines are smooth. Frame 0 and frame
+6.0 must be identical (see "Loop seam").

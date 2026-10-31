@@ -235,15 +235,50 @@
     };
     return stage;
   };
+  LB.reducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   LB.applyCamera = function (stage, cam, t) {
     cam = cam || {};
     var zoom = cam.zoom || 1, x = cam.x != null ? cam.x : 500, y = cam.y != null ? cam.y : 500;
-    var sh = LB.shake(t, cam.shake || 0, cam.shakeFreq || 24, 3);
+    var sh = LB.shake(t, (cam.shake || 0) * (LB.reducedMotion ? 0.4 : 1), cam.shakeFreq || 24, 3);
     var rot = (cam.rot || 0) + sh.rot;
+    stage.cam = { x: x, y: y, zoom: zoom, rot: rot, sx: 500 + sh.x, sy: 500 + sh.y };
     stage.camera.setAttribute('transform',
       'translate(' + r4(500 + sh.x) + ' ' + r4(500 + sh.y) + ') rotate(' + r4(rot) + ') scale(' + r4(zoom) + ') translate(' + r4(-x) + ' ' + r4(-y) + ')');
     stage.world.style.filter = cam.filter || '';
   };
+  // world point -> screen point (overlay viewBox units, 0..1000) for the camera applied this frame
+  LB.worldToScreen = function (stage, p) {
+    var c = stage.cam || { x: 500, y: 500, zoom: 1, rot: 0, sx: 500, sy: 500 };
+    var dx = (p.x - c.x) * c.zoom, dy = (p.y - c.y) * c.zoom, a = c.rot * LB.deg;
+    return { x: c.sx + dx * Math.cos(a) - dy * Math.sin(a), y: c.sy + dx * Math.sin(a) + dy * Math.cos(a) };
+  };
+
+  // Silhouette mode for impact frames: LB.silhouette(root, on, color) paints every shape in `root` one flat color.
+  // Mark decorative bits that should vanish in silhouette (highlights, glows) with data-sil="hide".
+  (function injectCss() {
+    var css = '.lb-sil, .lb-sil * { fill: var(--lb-sil, #000) !important; stroke: var(--lb-sil, #000) !important; }' +
+      '.lb-sil [fill="none"] { fill: none !important; }' +
+      '.lb-sil [stroke="none"] { stroke: none !important; }' +
+      '.lb-sil [data-sil="hide"] { display: none !important; }';
+    var s = document.createElement('style');
+    s.textContent = css;
+    (document.head || document.documentElement).appendChild(s);
+  })();
+  LB.silhouette = function (root, on, color) {
+    if (on) { root.classList.add('lb-sil'); root.style.setProperty('--lb-sil', color || '#000'); }
+    else root.classList.remove('lb-sil');
+  };
+
+  // resolve a position given as {x, y} (world) or as an anchor ref string 'who.name' (e.g. 'friar.lensR')
+  LB.resolveAt = function (ctx, at) {
+    if (!at) return { x: 500, y: 500 };
+    if (typeof at === 'string') { var p = at.split('.'); return ctx.anchor(p[0], p[1]); }
+    return at;
+  };
+  // fixed world points from the storyboard that several modules need
+  LB.WORLD = { arches: { x: 590, y: 225 }, billboard: { x: 515, y: 195 }, floorY: 950 };
+  // limited animation helper: quantize time to 12 fps ("on twos")
+  LB.onTwos = function (t) { return Math.floor(t * 12 + 1e-6) / 12; };
   // world-space position of an element's local point (pre-camera), for anchors
   LB.worldPoint = function (stage, node, px, py) {
     var m = stage.layers.chars.getCTM().inverse().multiply(node.getCTM());
