@@ -42,7 +42,10 @@
   function C(x, y, zoom, rot) { return { x: x, y: y, zoom: zoom, rot: rot }; }
   var SHOT = {
     photo: C(500, 500, 1, 0),
-    push: C(485, 430, 1.15, 0),
+    // Ceremonial push: (485,430) -> (485,385). The bonk card sits at screen (560,220), 16% tall; at y 430 it covered the
+    // Friar's fresh bump (screen y 273). At y 385 the bump lands at screen y 325, just under the card, and the push
+    // still moves in on the three faces (mitre top stays in frame at screen y 149).
+    push: C(485, 385, 1.15, 0),
     // Dead air: x 500 -> 490 so about HALF the King's face sits on the left edge (left edge x 323; his K_HIDE face centre
     // is about x 313..333). The billboard's lower part stays cropped by the top edge right above the bump.
     deadAir: C(490, 340, 3.0, 0),
@@ -60,7 +63,7 @@
     twoShotEnd: C(612, 330, 1.86, 0),
     // Case dismissed: (500,340) z2.8 -> (512,382) z3.2. The hanko stamp fills screen x 470..950, y 510..770, so the
     // Friar's face goes in the upper half (chin at screen y 484) and the stamp lands under it, off his face, with the
-    // gloom lines above his head. Left edge x 356: the King is a sliver (cheek and crown edge, eyes out of frame);
+    // gloom lines above his head. Left edge x 356: the King is a sliver (cheek, crown edge, at most one eye corner);
     // right edge x 668: the Bishop is only a red cape edge.
     dismissed: C(512, 382, 3.2, 0),
   };
@@ -72,8 +75,8 @@
       [0.48, SHOT.photo, 'linear'],                       // hold: the photo
       [1.00, SHOT.push, 'inOutSine'],                     // slow ceremonial push
       [1.09, SHOT.push, 'linear'],                        // held through the impact frame
-      [1.09, C(485, 430, 1.15, 2)],                       // impact released: roll kicks with the shake
-      [1.20, C(485, 430, 1.15, -1.5), 'outCubic'],
+      [1.09, C(485, 385, 1.15, 2)],                       // impact released: roll kicks with the shake
+      [1.20, C(485, 385, 1.15, -1.5), 'outCubic'],
       [1.40, SHOT.push, 'outCubic'],
       [1.40, SHOT.deadAir],                               // CUT: Friar close-up
       [2.02, SHOT.deadAir, 'linear'],
@@ -136,7 +139,7 @@
     var s = {
       pose: 'photo', hidden: false, breathe: 0,
       eyes: 'deadpan', brows: 'flat', mouth: 'closed', gazeX: 0, gazeY: 0,
-      sweat: 0, blush: 0, silhouette: 0, silhouetteColor: '#000',
+      sweat: 0, blush: 0, shadowFace: 0, silhouette: 0, silhouetteColor: '#000',
     };
     return applyFace(s, face);
   }
@@ -231,6 +234,8 @@
     if (t >= T.cut4) s.steeple = drawings(t, T.cut4, 2, 24, 'linear');
     if (inWin(t, T.opaque, T.heal)) s.glasses = 'opaque';
     if (inWin(t, T.smirk, T.heal)) applyFace(s, 'f_scheme');
+    // villain-panel lighting: the menacing upper-face shadow arrives with the white lenses and deepens with the smirk
+    if (inWin(t, T.opaque, T.cut5)) s.shadowFace = held(t, [[T.opaque, 0.45], [T.smirk, 0.8]], 0);
     if (inWin(t, T.heal, T.sad)) applyFace(s, 'f_smug');      // healed, has not realized yet
     if (t >= T.sad) applyFace(s, 'f_disappointed');
     // F_SLUMP: hands sink out of frame, shoulders drop a notch, head dips (5 drawings on twos, 4.96 .. 5.29).
