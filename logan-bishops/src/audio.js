@@ -1,21 +1,28 @@
 /* Logan Bishops: sound design. The STORYBOARD "Audio cue sheet", synthesized with WebAudio only (oscillators, a seeded
- * noise buffer, biquad filters, wave shaping and gain envelopes). No samples, no external assets.
+ * noise buffer, biquad filters, tanh wave shaping and gain envelopes). No samples, no external assets.
  *
  * API (CONTRACT "Audio"):  LB.register('audio', { init(ctx), update(t, loops), setMuted(bool), isMuted() })
- *   plus renderLoop(sampleRate[, opts]) -> Promise<AudioBuffer> (one 6 s loop through the same cue code, offline; for QA)
- *   and cueSheet() -> [{ id, t, dur, level }] (the cue list, for QA and the integrator).
+ *   extras: renderLoop(sampleRate[, { only: [cueIds], level }]) -> Promise<AudioBuffer>: one 6 s loop rendered offline
+ *           through the same cue code and master chain (QA); cueSheet() -> [{ id, t, dur, level }];
+ *           _debug.log(true|false) / _debug.state() (QA scheduling log and live state).
  *
  * - Muted by default. No AudioContext exists until setMuted(false) is called from a user gesture (iOS Safari rule):
- *   the context is created (or resumed) and unlocked right there.
+ *   the context is created (or resumed) and unlocked right there. Muting fades the master out in about 40 ms, cancels
+ *   every pending source and, 0.4 s later, suspends the context (battery); the next unmute resumes it.
  * - Look-ahead scheduler: every frame update(t, loops) maps the absolute loop position P = loops * D + t onto the
- *   AudioContext clock and schedules each cue whose loop time falls in the next LOOKAHEAD seconds. Cues are keyed by
- *   their absolute position, the scheduled range only moves forward, so nothing is ever scheduled twice. The wrap at
- *   LB.D is just the next loop index. Seeks, pauses, stalls and tab switches are detected (the loop clock and the
- *   audio clock disagree) and re-anchor the mapping. Nothing is scheduled while LB.clock.paused.
- * - Master chain: master gain -> DynamicsCompressor (gentle limiter) -> destination. The compressor has a fixed 6 ms
- *   look-ahead, so every cue is scheduled PRE seconds early and lands on its storyboard frame.
- * - Dead silence from the end of the shutter (about 5.63) through the seam to the knob ting at 0.38: no room tone,
- *   no running sources, so there is nothing to click at the seam.
+ *   AudioContext clock and schedules each cue whose loop time falls in the next LOOKAHEAD (0.2) seconds. Cues are keyed
+ *   by their absolute position and the scheduled range only moves forward, so nothing is scheduled twice; the wrap at
+ *   LB.D is just the next loop index. Seeks, pauses, stalls and tab switches are detected (the loop clock and the audio
+ *   clock disagree) and restart the mapping cleanly; small drift is followed smoothly. Nothing is scheduled while
+ *   LB.clock.paused (sounding cues are faded out), or while LB.clock.rate is not 1 (QA slow motion is silent).
+ * - Unmuting mid-loop starts with the cues after the current time. A sustained cue already in progress (drone, buzz,
+ *   whistles, heal charge, deflate) starts partway with a 30 ms fade-in when the context has been running long enough
+ *   for its own timeline to be valid; on the very first unmute it is skipped.
+ * - A/V sync: cues land on their storyboard time at the limiter output (its fixed 6 ms look-ahead is compensated) and
+ *   any reported output latency beyond about one display frame is scheduled early.
+ * - Master chain: master gain -> DynamicsCompressor (gentle limiter, about +3 dB makeup) -> destination.
+ * - Silence: nothing sounds from the end of the shutter's second click (5.62) through the seam to the knob ting at
+ *   0.38: no room tone, no running sources, exact digital zero, so there is nothing to click at the seam.
  */
 (function () {
   'use strict';
@@ -23,7 +30,7 @@
 
   // ---------------------------------------------------------------- tuning
   var LOOKAHEAD = 0.2;     // seconds of loop time scheduled ahead of the clock
-  var LEVEL = 0.8;         // master gain into the limiter
+  var LEVEL = 1.0;         // master gain into the limiter (hits peak about -1.5 dBFS, quiet cues lifted for phones)
   var PRE = 0.006;         // DynamicsCompressor look-ahead delay (Chromium and WebKit); cues are scheduled this early
   var MUSIC_CUT = 1.02;    // BONK: every music voice hard-stops here
   var DISPLAY_LAT = 0.025; // rough rAF-to-glass latency; audio output latency beyond this is scheduled early
@@ -159,10 +166,10 @@
 
   // 0.38 knob ting: sine 2.6 kHz, 120 ms exponential decay (plus a faint inharmonic glint partial)
   cue('ting', 0.38, 0.13, 'low', function (v, T) {
-    var g = v.gain(v.pan(-0.08));
+    var out = v.pan(-0.08), g = v.gain(out);
     perc(g.gain, T, LV.low, 0.001, 0.12);
     v.osc('sine', 2600, T, T + 0.13, g);
-    var g2 = v.gain(v.pan(-0.08));
+    var g2 = v.gain(out);
     perc(g2.gain, T, LV.low * 0.18, 0.001, 0.045);
     v.osc('sine', 2600 * 2.76, T, T + 0.05, g2);
   });
@@ -205,8 +212,8 @@
     var gn = v.gain();
     perc(gn.gain, T, LV.high * 1.6, 0.0005, 0.015);
     v.noise(T, T + 0.02, v.filter('bandpass', 2400, 1.2, gn));
-    var gt = v.gain(v.sat(LV.high * 0.9));
-    perc(gt.gain, T, 0.95, 0.002, 0.12);
+    var gt = v.gain(v.sat(LV.high * 0.8));
+    perc(gt.gain, T, 2.2, 0.002, 0.12);
     v.osc('sine', 80, T, T + 0.13, gt);
   });
 
@@ -214,7 +221,7 @@
   [1.09, 1.27, 1.51, 1.81].forEach(function (t, i) {
     cue('chirp-' + (i + 1), t, 0.04, 'vlow', function (v, T) {
       var g = v.gain(v.pan(i % 2 ? 0.45 : -0.45));
-      perc(g.gain, T, LV.vlow * (1 - 0.12 * i), 0.002, 0.028);
+      perc(g.gain, T, LV.vlow * 1.6 * (1 - 0.12 * i), 0.002, 0.028);
       var o = v.osc('sine', 3050, T, T + 0.035, g);
       o.frequency.linearRampToValueAtTime(3350, T + 0.03);
     });
@@ -233,8 +240,8 @@
   // 2.10 billboard sting: sawtooth chord D4 A4 D5 with a low-pass envelope (400 ms) + taiko boom
   cue('sting', 2.10, 0.45, 'high', function (v, T) {
     var g = v.gain();
-    shape(g.gain, [[T, 0], [T + 0.006, LV.high * 0.3]]);
-    g.gain.exponentialRampToValueAtTime(LV.high * 0.3 * 0.05, T + 0.38);
+    shape(g.gain, [[T, 0], [T + 0.006, LV.high * 0.24]]);
+    g.gain.exponentialRampToValueAtTime(LV.high * 0.24 * 0.05, T + 0.38);
     g.gain.linearRampToValueAtTime(0, T + 0.42);
     var lp = v.filter('lowpass', 500, 3, g);
     lp.frequency.setValueAtTime(500, T);
@@ -247,8 +254,8 @@
       });
     });
     // taiko: sine 140 -> 50 Hz over 300 ms + a noise burst for the skin
-    var gb = v.gain(v.sat(LV.high * 0.95));
-    perc(gb.gain, T, 1, 0.002, 0.33);
+    var gb = v.gain(v.sat(LV.high * 0.72));
+    perc(gb.gain, T, 1.8, 0.002, 0.33);
     var b = v.osc('sine', 140, T, T + 0.34, gb);
     b.frequency.exponentialRampToValueAtTime(50, T + 0.3);
     var gn = v.gain();
@@ -258,7 +265,7 @@
 
   // 2.10-2.70 neon buzz: 120 Hz square, low-passed, gated off for 2 frames at 2.22 and 2.46
   cue('buzz', 2.10, 0.6, 'vlow', function (v, T) {
-    var g = v.gain(), a = LV.vlow * 0.9, p = g.gain;
+    var g = v.gain(), a = LV.vlow * 0.38, p = g.gain;
     shape(p, [[T, 0], [T + 0.03, a]]);
     [0.12, 0.36].forEach(function (d) {
       p.setValueAtTime(a, T + d);
@@ -287,12 +294,12 @@
 
   // 2.78 card slam: sine 60 Hz thud (200 ms) + metallic hit (two detuned squares at 1.1 and 1.6 kHz, 60 ms)
   cue('slam', 2.78, 0.21, 'high', function (v, T) {
-    var gt = v.gain(v.sat(LV.high * 0.95));
-    perc(gt.gain, T, 1, 0.002, 0.2);
+    var gt = v.gain(v.sat(LV.high * 0.8));
+    perc(gt.gain, T, 2.4, 0.002, 0.2);
     var o = v.osc('sine', 95, T, T + 0.21, gt);
     o.frequency.exponentialRampToValueAtTime(60, T + 0.04);
     var gm = v.gain();
-    perc(gm.gain, T, LV.high * 0.3, 0.0008, 0.06);
+    perc(gm.gain, T, LV.high * 0.38, 0.0008, 0.06);
     var hp = v.filter('highpass', 700, 0.7, gm);
     v.osc('square', 1100, T, T + 0.065, hp).detune.value = -12;
     v.osc('square', 1600, T, T + 0.065, hp).detune.value = 12;
@@ -300,7 +307,8 @@
 
   // 2.80-3.42 villain drone: two sawtooths at D2 and Eb2, low-passed at 400 Hz, fading out by 3.42
   cue('drone', 2.80, 0.62, 'med', function (v, T) {
-    var g = v.gain(), a = LV.med * 0.75;
+    // the fundamentals are trimmed (high-pass 110 Hz) so the D / Eb beating lives in harmonics phones can play
+    var g = v.gain(v.filter('highpass', 110, 0.6, v.out)), a = LV.med * 0.5;
     shape(g.gain, [[T, 0], [T + 0.08, a], [T + 0.42, a], [T + 0.615, 0]]);
     [['D2', -0.35], ['Eb2', 0.35]].forEach(function (d) {
       var lp = v.filter('lowpass', 400, 2.2);
@@ -323,7 +331,7 @@
     cue('bubble-' + n, 3.44 + 0.025 * i, 0.07, 'low', function (v, T) {
       var f = hz(n), g = v.gain(v.pan([0.15, -0.2, 0.25, -0.1, 0.05][i]));
       perc(g.gain, T, LV.low * 0.55, 0.002, 0.06);
-      var o = v.osc('sine', f * 0.78, T, T + 0.065, g);
+      var o = v.osc('sine', f * 0.78, T, T + 0.07, g);
       o.frequency.exponentialRampToValueAtTime(f, T + 0.018);
     });
   });
@@ -345,8 +353,8 @@
 
   // 3.82 mustache boing: sine 220 Hz with a 30 Hz pitch wobble (180 ms)
   cue('boing', 3.82, 0.19, 'med', function (v, T) {
-    var g = v.gain(v.sat(LV.med * 0.75));
-    perc(g.gain, T, 0.9, 0.002, 0.18);
+    var g = v.gain(v.sat(LV.med * 0.62));
+    perc(g.gain, T, 2.0, 0.002, 0.18);
     var o = v.osc('sine', 220, T, T + 0.19, g);
     v.lfo(30, [[T, 420], [T + 0.18, 40]], o.detune, T, T + 0.19);
   });
@@ -376,7 +384,7 @@
 
   // 4.10-4.86 the King's nervous whistle: sine with vibrato, B5 (0.25 s), G5 (0.15 s), B5 sliding up (0.30 s)
   cue('kingWhistle', 4.10, 0.72, 'vlow', function (v, T) {
-    var out = v.pan(-0.45), g = v.gain(out), a = LV.vlow, p = g.gain;
+    var out = v.pan(-0.45), g = v.gain(out), a = LV.vlow * 1.4, p = g.gain;
     shape(p, [[T, 0], [T + 0.03, a], [T + 0.235, a], [T + 0.25, a * 0.3], [T + 0.265, a],
       [T + 0.385, a], [T + 0.4, a * 0.3], [T + 0.415, a], [T + 0.62, a], [T + 0.7, 0]]);
     var o = v.osc('sine', hz('B5'), T, T + 0.71, g), f = o.frequency;
@@ -425,13 +433,13 @@
 
   // 4.92 hanko stamp: sine 100 -> 50 Hz (150 ms) + a 30 ms noise hit
   cue('stamp', 4.92, 0.16, 'high', function (v, T) {
-    var gt = v.gain(v.sat(LV.high * 0.95));
-    perc(gt.gain, T, 1, 0.0015, 0.15);
+    var gt = v.gain(v.sat(LV.high * 0.8));
+    perc(gt.gain, T, 2.6, 0.0015, 0.15);
     var o = v.osc('sine', 100, T, T + 0.16, gt);
     o.frequency.exponentialRampToValueAtTime(50, T + 0.15);
     var gn = v.gain();
-    perc(gn.gain, T, LV.high * 1.3, 0.0005, 0.03);
-    v.noise(T, T + 0.035, v.filter('bandpass', 1300, 0.8, gn));
+    perc(gn.gain, T, LV.high * 2.8, 0.0005, 0.03);
+    v.noise(T, T + 0.035, v.filter('bandpass', 750, 0.75, gn));
   });
   // 4.97 one wood-block gavel knock: sine 900 Hz, 40 ms
   cue('gavel', 4.97, 0.05, 'high', function (v, T) {
@@ -446,7 +454,7 @@
 
   // 4.96-5.40 deflate: sine 600 -> 180 Hz slide with a 6 Hz wobble (sad, droopy)
   cue('deflate', 4.96, 0.45, 'low', function (v, T) {
-    var g = v.gain(), a = LV.low * 0.9;
+    var g = v.gain(), a = LV.low * 0.65;
     shape(g.gain, [[T, 0], [T + 0.03, a], [T + 0.36, a * 0.85], [T + 0.44, 0]]);
     var wob = v.gain(g, 0.8);
     v.lfo(6, 0.2, wob.gain, T, T + 0.445);
@@ -462,7 +470,7 @@
     [[0, 2000, 1], [0.06, 3500, 0.8]].forEach(function (c) {
       var g = v.gain();
       perc(g.gain, T + c[0], LV.med * 3.2 * c[2], 0.0005, 0.018);
-      v.noise(T + c[0], T + c[0] + 0.022, v.filter('bandpass', c[1], 2.2, g));
+      v.noise(T + c[0], T + c[0] + 0.025, v.filter('bandpass', c[1], 2.2, g));
     });
   });
 
