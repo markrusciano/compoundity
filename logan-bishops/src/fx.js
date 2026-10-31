@@ -9,7 +9,10 @@
   var LB = window.LB;
   var PI = Math.PI, TAU = PI * 2;
 
-  var FONT_JP = "'Dela Gothic One', 'Hiragino Kaku Gothic StdN', 'Yu Gothic', 'Noto Sans JP', sans-serif";
+  // Japanese cards: Dela Gothic One (one weight, 400). The texts ask for weight 900 with font-synthesis off (JP_HEAVY), so
+  // Dela is used as is while a system fallback picks its heaviest cut (Hiragino W8/W9, Yu Gothic Bold, Noto Black).
+  var FONT_JP = "'Dela Gothic One', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Noto Sans CJK JP', 'Noto Sans JP', sans-serif";
+  var JP_HEAVY = { 'font-family': FONT_JP, 'font-weight': 900, style: 'font-synthesis:none' };
   var FONT_BANG = "'Bangers', Impact, 'Arial Black', sans-serif";
   var FONT_ROUND = "'M PLUS Rounded 1c', 'Arial Rounded MT Bold', 'Helvetica Neue', Arial, sans-serif";
   var GREEN = '#3CFF6E', YELLOW = '#FFD60A', INK = '#111111';
@@ -22,7 +25,7 @@
       var swallow = function () {};
       document.fonts.load('400 100px "Dela Gothic One"', 'ゴン!!訴訟編却下').catch(swallow);
       document.fonts.load('400 100px "Bangers"', 'THE LAWSUIT ARC CASE DISMISSED').catch(swallow);
-      document.fonts.load('900 100px "M PLUS Rounded 1c"', 'CLASS: HEALER +999').catch(swallow);
+      document.fonts.load('900 100px "M PLUS Rounded 1c"', 'CLASS: HEALER +999 HP').catch(swallow);
     } catch (e) { /* fonts API missing: cards fall back to system fonts */ }
   })();
 
@@ -177,13 +180,19 @@
               var rr = it.size * a * (0.35 + 1.25 * LB.ease.outCubic(pop));
               it.ring.setAttribute('r', n2(rr));
               it.ring.setAttribute('stroke-width', n2(Math.max(0.6, it.size * 0.16 * (1 - pop))));
-              setOp(it.ring, Math.sin(PI * pop) * 1.2);
+              setOp(it.ring, Math.sin(PI * pop) * 0.6);
             }
           });
         };
       })();
 
-      // ------------------------------------------------------------ impact burst (screen space, red impact frame)
+      // ------------------------------------------------------------ impact burst (red impact frame)
+      // The white rays sit BEHIND the characters (a group appended to stage.layers.mid, i.e. after the scene's red impact
+      // fill, which scene.create made before fx.create), so the three silhouettes stay solid black shapes on the red and
+      // white burst. They live in world space but are counter-scaled by the camera zoom, so they keep their screen size.
+      // Only the small jagged contact star stays on top, in fxScreen.
+      var gBurstBack = LB.g(stage.layers.mid, { class: 'fx-burst-back', 'pointer-events': 'none' });
+      vis(gBurstBack, false);
       (function () {
         var rnd = LB.rng(1102);
         var d = '', N = 44;
@@ -195,23 +204,29 @@
             'L' + n2(Math.cos(ang - hw) * r1) + ' ' + n2(Math.sin(ang - hw) * r1) +
             'L' + n2(Math.cos(ang + hw) * r1) + ' ' + n2(Math.sin(ang + hw) * r1) + 'Z';
         }
-        var spin = LB.g(gBurst);
+        var spin = LB.g(gBurstBack);
         LB.path(spin, d, { fill: '#FFFFFF' });
+        var star = LB.g(gBurst);
         // jagged white contact flash with an ink rim
         var jag = '', M = 14;
         for (var j = 0; j < M * 2; j++) {
           var a2 = j / (M * 2) * TAU, r = j % 2 ? 26 + rnd() * 10 : 58 + rnd() * 34;
           jag += (j ? 'L' : 'M') + n2(Math.cos(a2) * r) + ' ' + n2(Math.sin(a2) * r);
         }
-        LB.path(spin, jag + 'Z', { fill: '#FFFFFF', stroke: INK, 'stroke-width': 5, 'stroke-linejoin': 'round', 'paint-order': 'stroke' });
+        LB.path(star, jag + 'Z', { fill: '#FFFFFF', stroke: INK, 'stroke-width': 5, 'stroke-linejoin': 'round', 'paint-order': 'stroke' });
         fx.impactBurst = function (st, t) {
           var k = st ? c01(num(st.k, 0)) : 0;
+          vis(gBurstBack, k > 0.002);
           if (!vis(gBurst, k > 0.002)) return;
-          var p = at2screen(stage, ctx, st.at, { x: 500, y: 500 });
-          var f = twos(t);
+          var w = at2world(ctx, st.at, { x: 500, y: 500 }), p = LB.worldToScreen(stage, w);
+          var cam = stage.cam || { zoom: 1, rot: 0 }, z = num(cam.zoom, 1) || 1;
+          var f = twos(t), sp = 'rotate(' + n2(jit(f * 1.7 + 4, 6)) + ') scale(' + n2(0.92 + 0.16 * LB.hash(f + 9)) + ')';
           tf(gBurst, p.x, p.y, 0);
-          spin.setAttribute('transform', 'rotate(' + n2(jit(f * 1.7 + 4, 6)) + ') scale(' + n2(0.92 + 0.16 * LB.hash(f + 9)) + ')');
+          star.setAttribute('transform', sp);
+          gBurstBack.setAttribute('transform', 'translate(' + n2(w.x) + ' ' + n2(w.y) + ') rotate(' + n2(-num(cam.rot, 0)) + ') scale(' + LB.r4(1 / z) + ')');
+          spin.setAttribute('transform', sp);
           setOp(gBurst, k);
+          setOp(gBurstBack, k);
         };
       })();
 
@@ -418,8 +433,9 @@
           notes.forEach(function (o) {
             var q = (p - o.b) / 0.42;
             if (!vis(o.n, q > 0 && q < 1)) return;
-            var x = at.x + 14 + 46 * q + 9 * Math.sin(TAU * (q * 1.1 + o.ph)), y = at.y - 16 - 105 * LB.ease.outQuad(q);
-            var s = (0.55 + 0.45 * LB.ease.outBack(c01(q / 0.2))) * o.sx * 1.25;
+            // rise beside the cheek (toward the Friar), not across the King's eyes and crown band
+            var x = at.x + 32 + 30 * q + 9 * Math.sin(TAU * (q * 1.1 + o.ph)), y = at.y - 6 - 105 * LB.ease.outQuad(q);
+            var s = (0.55 + 0.45 * LB.ease.outBack(c01(q / 0.2))) * o.sx * 0.95;
             tf(o.n, x, y, 16 * Math.sin(TAU * (q * 0.9 + o.ph)), s);
             setOp(o.n, LB.smoothstep(0, 0.08, q) * (1 - LB.smoothstep(0.72, 1, q)));
           });
@@ -435,12 +451,13 @@
         var rnd = LB.rng(5000), L = [];
         for (var i = 0; i < 19; i++) {
           var u = i / 18, edge = Math.pow(Math.abs(u - 0.5) * 2, 2);
-          // a curtain hanging from just above the hair to the brows, shorter at the temples
-          L.push({ x: -66 + u * 132 + (rnd() - 0.5) * 3, top: -80 + (rnd() - 0.3) * 10 + 26 * edge,
-            len: 58 + rnd() * 26 - 30 * edge, light: i % 3 === 1, d: rnd() * 0.4 });
+          // a curtain hanging from above the frame top (beat 7 camera) over the hair, ending on the forehead between
+          // -49 and -25: clear of the brows (-14) and the lens tops (-9.5), so the payoff face reads through it
+          L.push({ x: -66 + u * 132 + (rnd() - 0.5) * 3, top: -116 + (rnd() - 0.3) * 10 + 20 * edge,
+            len: 70 + rnd() * 14 - 20 * edge, light: i % 3 === 1, d: rnd() * 0.4 });
         }
-        // dark cap over the crown, its lower edge dissolving at the brows (head center = eye line)
-        shade.setAttribute('d', 'M-74 -30C-74 -84 -42 -100 0 -100C42 -100 74 -84 74 -30L70 6L-70 6Z');
+        // dark cap over the crown, its lower edge dissolving on the forehead above the brows (head center = eye line)
+        shade.setAttribute('d', 'M-74 -50C-74 -100 -42 -118 0 -118C42 -118 74 -100 74 -50L70 -24L-70 -24Z');
         fx.gloom = function (st) {
           var k = st ? c01(num(st.k, 0)) : 0;
           if (!vis(gGloom, k > 0.002)) return;
@@ -520,7 +537,7 @@
         // ink drop shadow, then the lettering (stroke painted under the fill); y centers the ink box (asc 0.91em)
         // ゴ big, ン smaller and dropped, !! tall: hand-lettered manga SFX rhythm (string stays exactly ゴン!!)
         function gon(attrs) {
-          var t = textEl(inner, '', Object.assign({ x: 0, y: 66, 'font-family': FONT_JP, 'font-size': 160, 'stroke-linejoin': 'round' }, attrs));
+          var t = textEl(inner, '', Object.assign({ x: 0, y: 66, 'font-size': 160, 'stroke-linejoin': 'round' }, JP_HEAVY, attrs));
           LB.el('tspan', { 'font-size': 182, dy: 4, text: 'ゴ' }, t);
           LB.el('tspan', { 'font-size': 142, dx: -12, dy: 6, text: 'ン' }, t);
           LB.el('tspan', { 'font-size': 168, dx: -6, dy: -14, 'letter-spacing': -2, text: '!!' }, t);
@@ -532,7 +549,7 @@
         cards.gon = function (age, k, t) {
           var s = age < 0.06 ? LB.lerp(1.6, 1, LB.ease.outBack(c01(age / 0.06))) : 1;
           var f = twos(t), amp = RM ? 2 : 4;
-          tf(g, 560 + jit(f * 3.1 + 1, amp), 220 + jit(f * 5.3 + 2, amp), -10, s);
+          tf(g, 582 + jit(f * 3.1 + 1, amp), 162 + jit(f * 5.3 + 2, amp), -10, s);
           setOp(g, k);
         };
         cards.gon.g = g;
@@ -546,14 +563,15 @@
         var bandNode = LB.el('rect', { x: -10, y: 640, width: 1020, height: 370, fill: url(band) }, g);
         var inner = LB.g(g);
         var red = grad(dS, 'linearGradient', [[0, '#F0383A'], [0.5, '#C8161E'], [1, '#8E0A12']], { x1: 0, y1: 0, x2: 0, y2: 1 });
-        var kan = { y: 0, 'font-family': FONT_JP, 'font-size': 140, 'letter-spacing': 14, 'stroke-linejoin': 'round' };
+        var kan = Object.assign({ y: 0, 'font-size': 140, 'letter-spacing': 14, 'stroke-linejoin': 'round' }, JP_HEAVY);
         textEl(inner, '訴訟編', Object.assign({ x: 7, fill: INK, stroke: INK, 'stroke-width': 32 }, kan));
         textEl(inner, '訴訟編', Object.assign({ x: 7, fill: url(red), stroke: '#FFFFFF', 'stroke-width': 10, 'paint-order': 'stroke' }, kan));
         // rules flanking the English line
         LB.path(inner, 'M-330 64H-205M205 64H330', { stroke: INK, 'stroke-width': 9, 'stroke-linecap': 'round', fill: 'none' });
         LB.path(inner, 'M-330 64H-205M205 64H330', { stroke: '#FFFFFF', 'stroke-width': 3.5, 'stroke-linecap': 'round', fill: 'none' });
         LB.path(inner, 'M-190 64l7 -7l7 7l-7 7ZM190 64l-7 -7l-7 7l7 7Z', { fill: '#C8161E', stroke: '#FFFFFF', 'stroke-width': 2.5 });
-        textEl(inner, 'THE LAWSUIT ARC', { x: 2, y: 88, 'font-family': FONT_BANG, 'font-size': 65, 'letter-spacing': 3, fill: '#FFFFFF', stroke: INK, 'stroke-width': 11, 'stroke-linejoin': 'round', 'paint-order': 'stroke' });
+        // textLength = the Bangers width, so a fallback font is squeezed to fit between the rules
+        textEl(inner, 'THE LAWSUIT ARC', { x: 2, y: 88, 'font-family': FONT_BANG, 'font-size': 65, 'letter-spacing': 3, textLength: 405, lengthAdjust: 'spacingAndGlyphs', fill: '#FFFFFF', stroke: INK, 'stroke-width': 11, 'stroke-linejoin': 'round', 'paint-order': 'stroke' });
         vis(g, false);
         cards.arc = function (age, k, t) {
           var s = age < 0.1 ? LB.lerp(2.4, 1, LB.ease.outBack(c01(age / 0.1))) : 1;
@@ -608,12 +626,12 @@
         vis(g, false);
         cards.hp = function (age, k, t) {
           var pop = age < 0.07 ? LB.lerp(0.6, 1.15, LB.ease.outQuad(age / 0.07)) : age < 0.14 ? LB.lerp(1.15, 1, LB.ease.inOutQuad((age - 0.07) / 0.07)) : 1;
-          var rise = 60 * LB.ease.outCubic(c01(age / 0.5));
-          // follow the Friar's head (stable when the bump pops at 4.38); start just above where the bump sits
+          // follow the Friar's head (stable when the bump pops at 4.38). In the two-shot the billboard hangs right above
+          // his head, so the card pops in already clear of its OVER line (one text at a time) and only rises 25.
           var h = ctx.chars && ctx.chars.friar ? ctx.anchor('friar', 'head') : null;
           var b = h ? LB.worldToScreen(stage, { x: h.x, y: h.y - 84 }) : { x: 300, y: 330 };
-          var x = LB.clamp(b.x, 210, 790), y = LB.clamp(b.y - 100, 90, 900);
-          tf(g, x, y - rise, 0);
+          var x = LB.clamp(b.x + 20, 210, 790), y = LB.clamp(b.y - 175, 90, 900); // +20: clear of the sound icon
+          tf(g, x, y - 25 * LB.ease.outCubic(c01(age / 0.5)), 0);
           inner.setAttribute('transform', 'scale(' + n2(pop) + ')');
           setOp(g, k); // the director fades k over the card's last 0.08 s
         };
@@ -675,7 +693,7 @@
         var ring = roughRect(Wd, H, 34, 8, 1.5, 1) + roughRect(Wd - 30, H - 30, 21, 8, 1.3, 2) +
           roughRect(Wd - 46, H - 46, 14, 8, 1.1, 3) + roughRect(Wd - 56, H - 56, 10, 8, 1.0, 4);
         LB.path(ink, ring, { fill: RED, 'fill-rule': 'evenodd' });
-        textEl(ink, '却下', { x: 3, y: 66, 'font-family': FONT_JP, 'font-size': 176, 'letter-spacing': 6, fill: RED });
+        textEl(ink, '却下', Object.assign({ x: 3, y: 66, 'font-size': 176, 'letter-spacing': 6, fill: RED }, JP_HEAVY));
         // ink splatter thrown off when it lands
         var splat = '';
         [[-244, -112, 4.2], [-232, -136, 2], [250, 120, 4.8], [266, 98, 2.2], [238, -138, 2.6], [-258, 128, 3]].forEach(function (s) { splat += circD(s[0], s[1], s[2]); });
@@ -683,7 +701,8 @@
         // landing shockwave: the stamp outline kicked outward once
         var wave = LB.el('rect', { x: -Wd / 2, y: -H / 2, width: Wd, height: H, rx: 36, fill: 'none', stroke: '#FFFFFF', 'stroke-width': 7 }, inner);
         var eng = LB.g(g);
-        textEl(eng, 'CASE DISMISSED', { x: 0, y: 23, 'font-family': FONT_BANG, 'font-size': 60, 'letter-spacing': 3, fill: '#FFFFFF', stroke: INK, 'stroke-width': 11, 'stroke-linejoin': 'round', 'paint-order': 'stroke' });
+        // textLength = the Bangers width: a fallback font cannot run off the frame edge
+        textEl(eng, 'CASE DISMISSED', { x: 0, y: 23, 'font-family': FONT_BANG, 'font-size': 60, 'letter-spacing': 3, textLength: 362, lengthAdjust: 'spacingAndGlyphs', fill: '#FFFFFF', stroke: INK, 'stroke-width': 11, 'stroke-linejoin': 'round', 'paint-order': 'stroke' });
         vis(g, false);
         cards.stamp = function (age, k, t) {
           var land = 0.06, s;

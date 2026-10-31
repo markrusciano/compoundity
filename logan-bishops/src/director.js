@@ -42,10 +42,10 @@
   function C(x, y, zoom, rot) { return { x: x, y: y, zoom: zoom, rot: rot }; }
   var SHOT = {
     photo: C(500, 500, 1, 0),
-    // Ceremonial push: (485,430) -> (485,385). The bonk card sits at screen (560,220), 16% tall; at y 430 it covered the
-    // Friar's fresh bump (screen y 273). At y 385 the bump lands at screen y 325, just under the card, and the push
-    // still moves in on the three faces (mitre top stays in frame at screen y 149).
-    push: C(485, 385, 1.15, 0),
+    // Ceremonial push: (485,430) z1.15 -> (458,362) z1.4, so the beat-1 punchline (bump, stars, askew glasses, unchanged
+    // face) reads on a phone: the Friar's head is about 58 px tall at 360 px, the King's whole face stays in frame and the
+    // mitre top sits at screen y 105. The bonk card (fx) moves up to screen (582,162) to clear the lifted knob (screen y 287).
+    push: C(458, 362, 1.4, 0),
     // Dead air: x 500 -> 490 so about HALF the King's face sits on the left edge (left edge x 323; his K_HIDE face centre
     // is about x 313..333). The billboard's lower part stays cropped by the top edge right above the bump.
     deadAir: C(490, 340, 3.0, 0),
@@ -75,8 +75,8 @@
       [0.48, SHOT.photo, 'linear'],                       // hold: the photo
       [1.00, SHOT.push, 'inOutSine'],                     // slow ceremonial push
       [1.09, SHOT.push, 'linear'],                        // held through the impact frame
-      [1.09, C(485, 385, 1.15, 2)],                       // impact released: roll kicks with the shake
-      [1.20, C(485, 385, 1.15, -1.5), 'outCubic'],
+      [1.09, C(458, 362, 1.4, 2)],                        // impact released: roll kicks with the shake
+      [1.20, C(458, 362, 1.4, -1.5), 'outCubic'],
       [1.40, SHOT.push, 'outCubic'],
       [1.40, SHOT.deadAir],                               // CUT: Friar close-up
       [2.02, SHOT.deadAir, 'linear'],
@@ -85,7 +85,7 @@
       [2.70, SHOT.lawsuit],                               // CUT: lawsuit ECU
       [3.42, SHOT.lawsuitEnd, 'linear'],
       [3.42, SHOT.socks],                                 // CUT: socks in slides
-      [3.56, SHOT.socks, 'linear'],
+      [3.62, SHOT.socks, 'linear'],                       // hold 0.20 s so the socks gag parses after the cut (T.tilt)
       [3.80, SHOT.healer, 'inOutCubic'],                  // tilt straight up his body
       [4.02, SHOT.healerEnd, 'linear'],                   // micro push while the mitre outgrows the frame
       [pullEnd, SHOT.twoShot, rm ? 'inOutSine' : 'outCubic'], // fast pull-back to the two-shot
@@ -104,9 +104,9 @@
     [1.09, 10],                 // bonk shake, decaying 10 -> 5 -> 0
     [1.20, 5, 'outCubic'],
     [1.40, 0, 'outCubic'],
-    [4.92, 0, 'linear'],
-    [4.92, 6],                  // hanko stamp shake 6 -> 0
-    [5.07, 0, 'outQuad'],
+    [4.98, 0, 'linear'],
+    [4.98, 6],                  // hanko stamp shake 6 -> 0, starting on the stamp's visible contact (fx lands it at 4.98)
+    [5.13, 0, 'outQuad'],
     [6.00, 0, 'linear'],
   ]);
   function camera(t) {
@@ -150,10 +150,15 @@
     raise: 0.48, bishopTrack: 0.52, bokeh: 0.50,
     drop: 0.95, contact: 0.99, impact: 1.02, impactEnd: 1.09,
     cut2: 1.40, slide: 1.56, cut3: 2.02, crashEnd: 2.10, cut4: 2.70, opaque: 2.74, arcCard: 2.78, smirk: 2.80,
-    cut5: 3.42, tilt: 3.56, face5: 3.80, beat6: 4.02, cast: 4.10, heal: 4.38, oneUp: 4.60,
-    cut7: 4.86, stamp: 4.92, sad: 4.94, slump: 4.96, gloom: 5.00, cut8: 5.46, flash: 5.54, sweatIn: 5.72,
+    cut5: 3.42, tilt: 3.62, face5: 3.80, mitreGrow: 3.86, beat6: 4.02, cast: 4.10, heal: 4.38, oneUp: 4.60,
+    cut7: 4.86, stamp: 4.92, sad: 5.04, slump: 5.08, gloom: 5.08, cut8: 5.46, flash: 5.54, sweatIn: 5.72,
   };
+  // Case Dismissed gets a take: smug close-up 4.86-5.04, the hanko visibly lands at 4.98 (fx: 0.06 s drop from 4.92), then
+  // his face falls at 5.04, the slump runs 5.08-5.41 and the gloom fades in 5.08-5.20, leaving a sad hold before the cut.
   var CONTACT = { x: 500, y: 258 };                    // knob on the Friar's crown (STORYBOARD beat 1)
+  // Where the full-size bump sits in beat 6 (the Friar's head does not move there). Heal sparkles and the pop puff aim at
+  // this fixed point: the 'friar.bump' anchor tracks the shrinking bump and would hop at 4.30 and 4.38.
+  var BUMP_AT = { x: 495.5, y: 246 };
   var FOCUS_BOX = [230, 170, 770, 440];                // screen box around the three faces in the wide shot
 
   // King ceremonial raise: 5 drawings on twos from 0.48 reach the top at 0.813 (with the last celesta note at 0.84); that
@@ -181,8 +186,10 @@
     } else if (t < T.cut2) {
       s.pose = 'bonk';
       s.raise = 1;
-      // the drop on ones: a smear drawing mid-fall, then the contact drawing (both with ghost scepters), then held
-      s.drop = held(t, [[T.drop, 0.5], [T.contact, 1]], 0);
+      // the drop on ones: a smear drawing mid-fall, then the contact drawing (both with ghost scepters), held through the
+      // impact and the head squash; then the inflating bump pushes the knob back up until it rests ON the bump (drop 0:
+      // knob bottom y 234, bump top y 236), so the shaft clears his lens and the bump is not hidden behind the prop.
+      s.drop = held(t, [[T.drop, 0.5], [T.contact, 1], [1.13, 0.25], [1.18, 0]], 0);
       s.smear = t < T.impact ? 1 : 0;
       s.headTilt = 2;
       applyFace(s, t < T.impactEnd ? 'k_solemn' : 'k_oops');
@@ -225,10 +232,11 @@
       s.stars = 1;
       s.starSpin = starSpin(t);
     }
-    // Dead air: only the pupils slide toward the billboard, 4 drawings on twos (1.56 .. 1.81), then pinned.
+    // Dead air: only the pupils slide toward the billboard, 4 drawings on twos (1.56 .. 1.81), then pinned. The face kit
+    // keeps upward travel small under the deadpan lid, so the slide is carried by a full sideways gazeX.
     if (inWin(t, T.slide, T.cut4)) {
       var g = drawings(t, T.slide, 4, 12, 'inOutSine');
-      s.gazeX = 0.7 * g; s.gazeY = -1 * g;
+      s.gazeX = 1.0 * g; s.gazeY = -1 * g;
     }
     // F_STEEPLE: clasped hands snap up under the beard in 2 drawings on ones.
     if (t >= T.cut4) s.steeple = drawings(t, T.cut4, 2, 24, 'linear');
@@ -238,7 +246,7 @@
     if (inWin(t, T.opaque, T.cut5)) s.shadowFace = held(t, [[T.opaque, 0.45], [T.smirk, 0.8]], 0);
     if (inWin(t, T.heal, T.sad)) applyFace(s, 'f_smug');      // healed, has not realized yet
     if (t >= T.sad) applyFace(s, 'f_disappointed');
-    // F_SLUMP: hands sink out of frame, shoulders drop a notch, head dips (5 drawings on twos, 4.96 .. 5.29).
+    // F_SLUMP: hands sink out of frame, shoulders drop a notch, head dips (5 drawings on twos, 5.08 .. 5.41).
     if (t >= T.slump) {
       var k = drawings(t, T.slump, 5, 12, 'inOutSine');
       s.steeple = 1 - k;
@@ -264,9 +272,11 @@
       applyFace(s, 'b_hero');
       s.mustacheTwitch = twitch(t, 3.82);
     }
-    if (inWin(t, T.face5, T.cut8)) {
-      // B_MITRE_STRETCH: 1.0 -> 1.4 outBack on ones, anchored at the headband; held until the 5.46 cut.
-      s.mitreStretch = 1 + 0.4 * drawings(t, T.face5, 6, 24, 'outBack');
+    if (inWin(t, T.mitreGrow, T.cut8)) {
+      // B_MITRE_STRETCH: 1.0 -> 1.4 anchored at the headband, held until the 5.46 cut. It starts 0.06 s after the hero landing
+      // (so the landing, glint and CLASS card read first) and climbs on ones (5 drawings, 3.86 .. 4.03) with an even ease,
+      // so the tip visibly rises out of the top edge during the micro push instead of popping out in 2 frames.
+      s.mitreStretch = 1 + 0.4 * drawings(t, T.mitreGrow, 5, 24, 'inOutSine');
     }
     if (inWin(t, T.cast, T.cut7)) {
       // B_CAST: arm out of the cape at shoulder height toward the Friar (2 drawings on twos), green glow ring (smooth).
@@ -327,7 +337,8 @@
       f.glints.push({ at: 'king.knob', k: glintK(t, T.glintA, T.glintPeak, T.glintB), rot: 45 * prog(t, T.glintA, T.glintB), size: 50 });
     }
     if (inWin(t, T.opaque, 2.92)) {
-      f.glints.push({ at: 'friar.lensR', k: glintK(t, T.opaque, 2.78, 2.92), rot: 45 * prog(t, T.opaque, 2.92), size: 34 });
+      // size 28: still the big anime lens glint at phone size, but the opaque lens and the brow stay readable around it
+      f.glints.push({ at: 'friar.lensR', k: glintK(t, T.opaque, 2.78, 2.92), rot: 45 * prog(t, T.opaque, 2.92), size: 28 });
     }
     if (inWin(t, T.face5, 3.95)) {
       f.glints.push({ at: 'bishop.mustache', k: glintK(t, T.face5, 3.84, 3.95), rot: 45 * prog(t, T.face5, 3.95), size: 30 });
@@ -343,10 +354,10 @@
     if (inWin(t, T.cut3, 2.16)) {
       f.speedLines = { mode: 'radial', k: fade(t, T.cut3, 2.035) * (1 - fade(t, 2.10, 2.16)), seed: seed, at: { x: 515, y: 196 } };
     } else if (inWin(t, T.tilt, T.face5)) {
-      f.speedLines = { mode: 'vertical', k: fade(t, T.tilt, 3.59) * (1 - fade(t, 3.74, T.face5)), seed: seed, at: null };
+      f.speedLines = { mode: 'vertical', k: fade(t, T.tilt, 3.65) * (1 - fade(t, 3.74, T.face5)), seed: seed, at: null };
     }
     // 6. pop puff where the bump was
-    if (inWin(t, T.heal, 4.50)) f.puff = { p: prog(t, T.heal, 4.50), at: 'friar.bump' };
+    if (inWin(t, T.heal, 4.50)) f.puff = { p: prog(t, T.heal, 4.50), at: BUMP_AT };
     // 11. bishounen bubbles drifting up from the slides
     if (inWin(t, T.cut5, 3.75)) {
       f.bishounen = { k: fade(t, T.cut5, 3.46) * (1 - fade(t, 3.64, 3.75)), p: prog(t, T.cut5, 3.75), at: 'bishop.feet' };
@@ -356,11 +367,11 @@
       f.archesFlare = { k: t < 4.30 ? E.inOutSine(prog(t, 4.12, 4.30)) : 1 - E.outQuad(prog(t, 4.30, 4.40)) };
     }
     // 16. green heal sparkles rain onto the bump
-    if (inWin(t, 4.20, 4.44)) f.heal = { p: prog(t, 4.20, 4.44), at: 'friar.bump' };
+    if (inWin(t, 4.20, 4.44)) f.heal = { p: prog(t, 4.20, 4.44), at: BUMP_AT };
     // 18. the King's guilty whistle
     if (inWin(t, T.cast, T.cut7)) f.notes = { p: prog(t, T.cast, T.cut7), at: 'king.mouth' };
     // 21. gloom lines over the Friar's head
-    if (inWin(t, T.gloom, T.cut8)) f.gloom = { k: fade(t, T.gloom, 5.12), at: 'friar.head' };
+    if (inWin(t, T.gloom, T.cut8)) f.gloom = { k: fade(t, T.gloom, 5.20), at: 'friar.head' };
     // 22. phone focus square snaps onto the faces
     if (inWin(t, T.cut8, 5.68)) f.focus = { k: 1 - fade(t, 5.60, 5.68), p: prog(t, T.cut8, T.flash), box: FOCUS_BOX.slice() };
     // 23. shutter flash: 0.7 for 2 frames at 5.54, gone by 5.66

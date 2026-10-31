@@ -2,6 +2,10 @@
 (function () {
   'use strict';
   var LB = window.LB;
+  // T13: numeric state fields go through num(): anything that is not a finite number falls back to the default
+  function num(v, d) { return typeof v === 'number' && isFinite(v) ? v : d; }
+  // Source Sans 3 700, 9.5 units, centred at (314,512): the tee print as path data (from tools/bake-text.cjs)
+  var NIGHT_D = 'M304.9 512L303.5 512L303.5 507.3L304.7 507.3L304.8 507.9L304.8 507.9Q305.1 507.6 305.5 507.4Q305.8 507.2 306.3 507.2L306.3 507.2Q307.1 507.2 307.4 507.7Q307.8 508.2 307.8 509.1L307.8 509.1L307.8 512L306.4 512L306.4 509.3Q306.4 508.7 306.2 508.6Q306.1 508.4 305.8 508.4L305.8 508.4Q305.5 508.4 305.3 508.5Q305.1 508.6 304.9 508.8L304.9 508.8L304.9 512ZM310.3 512L308.9 512L308.9 507.3L310.3 507.3L310.3 512ZM309.6 506.6L309.6 506.6Q309.3 506.6 309.1 506.4Q308.8 506.2 308.8 505.9L308.8 505.9Q308.8 505.5 309.1 505.3Q309.3 505.1 309.6 505.1L309.6 505.1Q310 505.1 310.2 505.3Q310.4 505.5 310.4 505.9L310.4 505.9Q310.4 506.2 310.2 506.4Q310 506.6 309.6 506.6ZM313.2 514L313.2 514Q312.7 514 312.2 513.9Q311.8 513.7 311.5 513.5Q311.3 513.2 311.3 512.8L311.3 512.8Q311.3 512.5 311.4 512.3Q311.6 512 311.9 511.9L311.9 511.9L311.9 511.8Q311.8 511.7 311.6 511.5Q311.5 511.3 311.5 511L311.5 511Q311.5 510.8 311.7 510.5Q311.8 510.3 312 510.1L312 510.1L312 510.1Q311.8 509.9 311.6 509.6Q311.4 509.3 311.4 508.9L311.4 508.9Q311.4 508.3 311.7 507.9Q312 507.6 312.4 507.4Q312.8 507.2 313.3 507.2L313.3 507.2Q313.5 507.2 313.7 507.2Q313.9 507.2 314.1 507.3L314.1 507.3L315.8 507.3L315.8 508.3L315 508.3L315 508.3Q315.1 508.5 315.2 508.6Q315.2 508.8 315.2 508.9L315.2 508.9Q315.2 509.5 315 509.8Q314.7 510.2 314.3 510.3Q313.9 510.5 313.3 510.5L313.3 510.5Q313.2 510.5 313.1 510.5Q312.9 510.5 312.8 510.4L312.8 510.4Q312.7 510.5 312.7 510.6Q312.6 510.6 312.6 510.8L312.6 510.8Q312.6 510.9 312.8 511Q312.9 511.1 313.3 511.1L313.3 511.1L314.1 511.1Q315 511.1 315.4 511.4Q315.9 511.7 315.9 512.3L315.9 512.3Q315.9 512.8 315.6 513.2Q315.2 513.6 314.6 513.8Q314.1 514 313.2 514ZM313.3 509.7L313.3 509.7Q313.5 509.7 313.7 509.6Q313.8 509.5 313.9 509.3Q314 509.1 314 508.9L314 508.9Q314 508.5 313.8 508.3Q313.6 508.1 313.3 508.1L313.3 508.1Q313.1 508.1 312.9 508.3Q312.7 508.5 312.7 508.9L312.7 508.9Q312.7 509.1 312.8 509.3Q312.9 509.5 313 509.6Q313.2 509.7 313.3 509.7ZM313.5 513.1L313.5 513.1Q313.8 513.1 314 513.1Q314.3 513 314.4 512.8Q314.5 512.7 314.5 512.6L314.5 512.6Q314.5 512.3 314.4 512.3Q314.2 512.2 313.8 512.2L313.8 512.2L313.3 512.2Q313.1 512.2 312.9 512.2Q312.8 512.2 312.7 512.1L312.7 512.1Q312.5 512.2 312.5 512.3Q312.4 512.5 312.4 512.6L312.4 512.6Q312.4 512.9 312.7 513Q313 513.1 313.5 513.1ZM318 512L316.6 512L316.6 505.3L318 505.3L318 507L318 507.8Q318.2 507.6 318.6 507.4Q318.9 507.2 319.4 507.2L319.4 507.2Q320.2 507.2 320.5 507.7Q320.9 508.2 320.9 509.1L320.9 509.1L320.9 512L319.5 512L319.5 509.3Q319.5 508.7 319.4 508.6Q319.2 508.4 318.9 508.4L318.9 508.4Q318.6 508.4 318.5 508.5Q318.3 508.6 318 508.8L318 508.8L318 512ZM323.9 512.1L323.9 512.1Q323 512.1 322.6 511.6Q322.2 511.1 322.2 510.3L322.2 510.3L322.2 508.4L321.6 508.4L321.6 507.3L322.3 507.3L322.5 505.8L323.6 505.8L323.6 507.3L324.8 507.3L324.8 508.4L323.6 508.4L323.6 510.3Q323.6 510.7 323.8 510.8Q324 511 324.3 511L324.3 511Q324.4 511 324.5 511Q324.6 511 324.7 510.9L324.7 510.9L324.9 511.9Q324.8 512 324.5 512Q324.2 512.1 323.9 512.1Z';
 
   // ------------------------------------------------------------------ tiny affine math (SVG matrix order a b c d e f)
   function mul(m, n) {
@@ -187,8 +191,8 @@
     var torso = LB.g(leanFront);
     var tee = F.cel(torso, { flat: true, d: 'M289 444L326 444L340 676L294 676Z', fill: P.tee, shadow: P.teeShadow,
       shadowD: 'M289 444L305 444C302 520 304 600 306 676L294 676Z', lw: LW.inner });
-    LB.el('text', { x: 314, y: 512, 'text-anchor': 'middle', 'font-family': "'Source Sans 3', sans-serif", 'font-weight': 700, 'font-size': 9.5,
-      fill: P.teePrint, transform: 'rotate(2 314 512)', text: 'night' }, torso);
+    // tee print 'night': baked glyph outlines (tools/bake-text.cjs, key night), so the camera zoom never re-lays out text
+    LB.path(torso, NIGHT_D, { fill: P.teePrint, transform: 'rotate(2 314 512)' });
     var jL = F.cel(torso, { flat: true, d: F.crD([[296, 444], [270, 450], [252, 474], [247, 560], [249, 676], [276, 680], [305, 677], [302, 560], [300, 470]], true),
       fill: P.jacket, shadow: P.jacketShadow, shadowD: 'M288 470C292 540 294 610 296 690L320 690L320 440L300 440Z', lw: LW.inner });
     var jR = F.cel(torso, { flat: true, d: F.crD([[318, 444], [346, 448], [362, 470], [368, 560], [370, 676], [350, 680], [334, 677], [332, 560], [328, 470]], true),
@@ -208,10 +212,12 @@
     var LS = [354, 468], LE = [360, 562], LW2 = [364, 650];
     F.limb(lArm, { fill: P.jacket, shadow: P.jacketShadow, lw: LW.inner }).set(LS, LE, LW2, 27, 24, 21);
     LB.path(lArm, 'M353 642L375 644M359 566C361 572 365 574 370 574M352 610C356 613 361 613 366 611', ol(1.0, P.jacketSeam));
-    var lhD = 'M355 650C351 660 351 675 355 685C358 693 368 696 373 689C376 683 377 668 374 651Z';
-    F.cel(lArm, { flat: true, d: lhD, fill: P.skin, shadow: P.skinShadow, shadowD: 'M368 650C373 664 373 680 366 696L383 696L383 650Z', lw: LW.inner });
-    LB.path(lArm, 'M355.5 661C353.5 668 354 675 357.5 680M362 682C364 685 367 686 370 684M363 687.5C365 690 368 690.6 371 689', ol(0.85, S.lineSoft));
-    LB.path(lArm, 'M361.6 681.6C364 684.4 368 684.6 371.2 682.4', ol(1.6, P.ring, { 'data-sil': 'hide' }));
+    // relaxed hanging fist (about 34 tall): thumb crease on the lit side, curled finger separations, the ring on top
+    var lhD = 'M355 650C351 659 350.4 670 353.4 678.4C356 686 366.4 689 372.2 683.4C376.2 678.4 377 666 374 651Z';
+    F.cel(lArm, { flat: true, d: lhD, fill: P.skin, shadow: P.skinShadow, shadowD: 'M368 650C373 662 373.4 676 367 690L383 690L383 650Z', lw: LW.inner });
+    LB.path(lArm, 'M355.4 659C353.4 665.4 353.8 671.4 357 675.6M358.6 669.4C361.6 671 365.6 671.2 369.4 669.6' +
+      'M358.2 675.4C361.2 677.4 365.6 677.6 369.8 675.8M359.6 681C362.4 683 366 683.2 369.6 681.6', ol(0.85, S.lineSoft));
+    LB.path(lArm, 'M358.6 672.2C361.6 674.2 365.6 674.4 369.6 672.6', ol(1.6, P.ring, { 'data-sil': 'hide' }));
 
     // ---- cape front panel, screen-right (over the character's left shoulder)
     var RT = [[313, 468], [332, 504], [358, 548], [384, 600], [398, 660], [405, 730], [411, 800], [417, 870], [423, 936]];
@@ -256,6 +262,9 @@
 
     // ---- ermine collar (back part stands up behind the neck)
     var collarBack = LB.g(leanFront);
+    // the shadowed inside of the standing collar, behind the neck: closes the two gaps beside the neck (they showed the room,
+    // and read as a donut hole in the impact silhouette)
+    LB.path(collarBack, F.crD([[266, 458], [268, 430], [282, 410], [305, 403], [328, 407], [342, 428], [346, 458]], true), fl(P.liningShadow));
     ermine(collarBack, [[260, 456], [261, 428], [276, 406], [305, 397], [334, 401], [349, 422], [352, 454]], 25, 37, { side: 1, step: 6.6, taper: [0.14, 0.14] });
 
     // ================================================================ HEAD
@@ -272,7 +281,9 @@
     var face = F.create(feat, {
       eyeSpacing: 38, eyeW: 21.5, eyeH: 11, irisColor: P.iris, irisDark: P.irisDark, irisLight: P.irisLight, browColor: P.brow,
       browY: -12.5, mouthY: 35, mouthW: 15, mustache: true, lipColor: P.lip, skin: P.skin, skinShadow: P.skinShadow,
-      sweatAt: { x: 48, y: -24 }, cheekY: 15, noseY: 19.5, faceClip: hd.clipId,
+      // the seam sweat drop is the King's only tell that he remembers: big enough to read on a phone (about 7 x 13 px at
+      // 360 px in the wide shot), hanging at the screen-right temple just under the crown band
+      sweatAt: { x: 50, y: -14 }, sweatScale: 1.8, cheekY: 15, noseY: 19.5, faceClip: hd.clipId,
     });
     // mustache: brown chevron, thick in the middle, tips drooping a little past the mouth corners
     var mus = LB.g(feat, { transform: 'translate(0 28) scale(1.13 1.1) translate(0 -28)' });
@@ -361,10 +372,10 @@
 
     // ================================================================ SCEPTER (front) + fist
     var scFront = LB.g(leanFront);
-    // smear ghosts: one path each (shaft + knob in the knob gold reads as a motion blur of the whole prop)
-    var ghosts = [0.4, 0.2].map(function (op) {
-      return LB.path(scFront, 'M-3.6 -214L-3.6 ' + TIP + 'L3.6 ' + TIP + 'L3.6 -214Z M-13 ' + (-KNOB) + 'a13 13 0 1 0 26 0a13 13 0 1 0 -26 0Z',
-        fl('#3A2E1C', { opacity: op, 'data-sil': 'hide' }));
+    // smear ghosts: one path each (a wide shaft + knob in pale gold, so the motion reads over the dark night window)
+    var ghosts = [0.55, 0.3].map(function (op) {
+      return LB.path(scFront, 'M-5 -214L-5 ' + TIP + 'L5 ' + TIP + 'L5 -214Z M-13 ' + (-KNOB) + 'a13 13 0 1 0 26 0a13 13 0 1 0 -26 0Z',
+        fl('#FFE7A0', { opacity: op, 'data-sil': 'hide' }));
     });
     var scepterF = buildScepter(scFront, true);
     var fist = LB.g(scFront);
@@ -397,13 +408,13 @@
       var p = { tilt: 8, pitch: -0.35, lean: 0, grip: GRIP_PHOTO, phi: PHI_PHOTO, front: true };
       var name = s.pose || 'photo';
       if (name === 'raise') {
-        var k = clamp(+s.raise || 0, 0, 1);
+        var k = clamp(num(s.raise, 0), 0, 1);
         p.grip = qb(GRIP_PHOTO, [352, 520], GRIP_RAISE, k);
         p.phi = lerp(PHI_PHOTO, PHI_RAISE, k) - 18 * Math.pow(Math.sin(Math.PI * k), 1.2);
         p.tilt = lerp(8, 2, LB.ease.inOutSine(k));
         p.pitch = lerp(-0.35, 0.7, LB.ease.inOutSine(k));
       } else if (name === 'bonk') {
-        var dk = clamp(+s.drop || 0, 0, 1);
+        var dk = clamp(num(s.drop, 0), 0, 1);
         p.grip = [lerp(GRIP_RAISE[0], GRIP_BONK[0], dk), lerp(GRIP_RAISE[1], GRIP_BONK[1], dk)];
         p.phi = lerp(PHI_RAISE, PHI_BONK, dk);
         p.tilt = 2; p.pitch = 0.7;
@@ -422,12 +433,12 @@
       vis(root, 'hidden', !hidden);
       if (hidden) { last.state = s; return; }
       var p = poseOf(s);
-      var x = s.x != null ? +s.x : FEET[0], y = s.y != null ? +s.y : FEET[1];
-      var sc = s.scale != null ? +s.scale : 1, sx = s.sx != null ? +s.sx : 1, sy = s.sy != null ? +s.sy : 1;
-      var lean = s.lean != null ? +s.lean : p.lean;
-      var tilt = s.headTilt != null ? +s.headTilt : p.tilt;
-      var bob = (+s.bob || 0) - (+s.breathe || 0) * 1.6 * (0.5 + 0.5 * LB.loopSin(s.t || 0, 3));
-      M.root = chain(T(x, y), R(+s.rot || 0), Sc(sc * sx, sc * sy), T(-FEET[0], -FEET[1]));
+      var x = num(s.x, FEET[0]), y = num(s.y, FEET[1]);
+      var sc = num(s.scale, 1), sx = num(s.sx, 1), sy = num(s.sy, 1);
+      var lean = num(s.lean, p.lean);
+      var tilt = num(s.headTilt, p.tilt);
+      var bob = num(s.bob, 0) - num(s.breathe, 0) * 1.6 * (0.5 + 0.5 * LB.loopSin(s.t || 0, 3));
+      M.root = chain(T(x, y), R(num(s.rot, 0)), Sc(sc * sx, sc * sy), T(-FEET[0], -FEET[1]));
       M.lean = chain(T(0, bob), T(HIP[0], HIP[1]), R(lean), T(-HIP[0], -HIP[1]));
       M.head = chain(T(NECK[0], NECK[1]), R(tilt), T(0, FACE_UP));
       setT(root, 'root', M.root);
@@ -475,7 +486,7 @@
         setT(fist, 'fist', M.scep);
         setT(scepterF.knobShade, 'ksh', chain(T(0, 0), R(-th)));
         setT(scepterF.knobHi, 'khi', R(-th));
-        var sm = clamp(+s.smear || 0, 0, 1);
+        var sm = clamp(num(s.smear, 0), 0, 1);
         ghosts.forEach(function (g, i) {
           var on = sm > 0.01;
           vis(g, 'gh' + i, on);
@@ -492,6 +503,9 @@
       face.update(s);
       var sil = (+s.silhouette || 0) > 0.5;
       LB.silhouette(root, sil, s.silhouetteColor || '#000');
+      // the weapon stays readable in the impact frame: the scepter (not the fist) is one flat gold shape across the black
+      // figures (the custom property cascades over the root's color)
+      LB.silhouette(scepterF.g, sil, P.gold);
       vis(drape, 'drape', !sil);
       last.p = p; last.state = s;
     }
@@ -506,7 +520,7 @@
         case 'knob': return ap(chain(base, M.scep), [0, -KNOB]);
         case 'crown': return ap(chain(headM, M.crown), [0, -30]);
         case 'mouth': return ap(headM, [0, 36 + pitchY]);
-        case 'temple': return ap(headM, [44, -22 + pitchY]);
+        case 'temple': return ap(headM, [50, -14 + pitchY]);
         default: return ap(headM, [0, -6]);
       }
     }

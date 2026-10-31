@@ -13,7 +13,8 @@ Tap the video for sound (all audio is synthesized live with WebAudio).
   `director.js` (all timing), `ui.js` (Vine chrome), `audio.js` (synthesized sound), `index.html` (dev page, loads the modules)
 - `docs/` `PHOTO.md` (reference notes), `STORYBOARD.md` (the beat sheet), `CONTRACT.md` (module APIs), `STYLE.md` (art bible)
 - `tools/` `build.cjs` (inline modules into one file), `render.cjs` (deterministic frame renderer and contact sheets),
-  `harness.cjs` (test pages with chosen modules), `stub-chars.js` (placeholder rigs for testing)
+  `harness.cjs` (test pages with chosen modules), `stub-chars.js` (placeholder rigs for testing),
+  `bake-text.cjs` (bakes world signage text to SVG paths)
 
 ## Commands
 ```

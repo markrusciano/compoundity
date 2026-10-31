@@ -292,30 +292,39 @@
     o2.frequency.exponentialRampToValueAtTime(6030, T + 0.25);
   });
 
-  // 2.78 card slam: sine 60 Hz thud (200 ms) + metallic hit (two detuned squares at 1.1 and 1.6 kHz, 60 ms)
+  // 2.78 card slam: sine 60 Hz thud (200 ms) + metallic hit (two detuned squares at 1.1 and 1.6 kHz, 60 ms).
+  // Phone speakers drop everything under about 450 Hz: the thud starts higher and a 2.4 kHz click carries the hit.
   cue('slam', 2.78, 0.21, 'high', function (v, T) {
     var gt = v.gain(v.sat(LV.high * 0.8));
     perc(gt.gain, T, 2.4, 0.002, 0.2);
-    var o = v.osc('sine', 95, T, T + 0.21, gt);
-    o.frequency.exponentialRampToValueAtTime(60, T + 0.04);
+    var o = v.osc('sine', 160, T, T + 0.21, gt);
+    o.frequency.exponentialRampToValueAtTime(60, T + 0.05);
+    var gn = v.gain();
+    perc(gn.gain, T, LV.high * 1.4, 0.0005, 0.025);
+    v.noise(T, T + 0.03, v.filter('bandpass', 2400, 1.2, gn));
     var gm = v.gain();
-    perc(gm.gain, T, LV.high * 0.38, 0.0008, 0.06);
+    perc(gm.gain, T, LV.high * 0.6, 0.0008, 0.06);
     var hp = v.filter('highpass', 700, 0.7, gm);
     v.osc('square', 1100, T, T + 0.065, hp).detune.value = -12;
     v.osc('square', 1600, T, T + 0.065, hp).detune.value = 12;
   });
 
-  // 2.80-3.42 villain drone: two sawtooths at D2 and Eb2, low-passed at 400 Hz, fading out by 3.42
+  // 2.80-3.42 villain drone: two sawtooths at D2 and Eb2, low-passed (the sheet's 400 Hz, opened up for phones), fading out by 3.42
+  var DRONE_PRE = 2.5, DRONE_SAT = 1.1; // drive into the tanh shaper, and its output level
   cue('drone', 2.80, 0.62, 'med', function (v, T) {
-    // the fundamentals are trimmed (high-pass 110 Hz) so the D / Eb beating lives in harmonics phones can play
-    var g = v.gain(v.filter('highpass', 110, 0.6, v.out)), a = LV.med * 0.5;
+    // the fundamentals are trimmed (high-pass 160 Hz) and the low-pass opened and saturated, so the D / Eb beating lives
+    // in harmonics phone speakers can play (at 400 Hz the whole drone vanished on a phone)
+    var g = v.gain(v.filter('highpass', 160, 0.6, v.out)), a = LV.med * 0.5;
     shape(g.gain, [[T, 0], [T + 0.08, a], [T + 0.42, a], [T + 0.615, 0]]);
-    [['D2', -0.35], ['Eb2', 0.35]].forEach(function (d) {
-      var lp = v.filter('lowpass', 400, 2.2);
+    [['D2', 'A3', -0.35], ['Eb2', 'Bb3', 0.35]].forEach(function (d) {
+      var lp = v.filter('lowpass', 900, 2.2);
       var pan = v.ac.createStereoPanner ? v.ac.createStereoPanner() : null;
-      if (pan) { pan.pan.value = d[1]; pan.connect(g); lp.connect(pan); } else lp.connect(g);
-      shape(lp.frequency, [[T, 330], [T + 0.32, 460], [T + 0.62, 360]]);
-      v.osc('sawtooth', hz(d[0]), T, T + 0.62, lp);
+      var sat = v.sat(DRONE_SAT, pan || g);
+      if (pan) { pan.pan.value = d[2]; pan.connect(g); }
+      lp.connect(sat);
+      shape(lp.frequency, [[T, 900], [T + 0.32, 1400], [T + 0.62, 1000]]);
+      v.osc('sawtooth', hz(d[0]), T, T + 0.62, v.gain(lp, DRONE_PRE));
+      v.osc('sawtooth', hz(d[1]), T, T + 0.62, v.gain(lp, DRONE_PRE * 0.5)); // A3 / Bb3 (a 12th up), 6 dB down
     });
   }, { sustain: true });
 
@@ -336,24 +345,25 @@
     });
   });
 
-  // 3.56-3.80 slide whistle: sine 300 -> 1200 Hz with light vibrato (plus a breath of noise on the pitch)
-  cue('slideWhistle', 3.56, 0.25, 'med', function (v, T) {
+  // 3.62-3.80 slide whistle: sine 300 -> 1200 Hz with light vibrato (plus a breath of noise on the pitch). It starts with
+  // the tilt (the socks shot holds to 3.62) and still tops out as the camera lands on his face at 3.80.
+  cue('slideWhistle', 3.62, 0.19, 'med', function (v, T) {
     var g = v.gain(), a = LV.med * 0.6;
-    shape(g.gain, [[T, 0], [T + 0.02, a], [T + 0.225, a], [T + 0.24, 0]]);
-    var o = v.osc('sine', 300, T, T + 0.245, g);
-    o.frequency.exponentialRampToValueAtTime(1200, T + 0.24);
-    v.lfo(7, 22, o.detune, T, T + 0.245);
+    shape(g.gain, [[T, 0], [T + 0.02, a], [T + 0.165, a], [T + 0.18, 0]]);
+    var o = v.osc('sine', 300, T, T + 0.185, g);
+    o.frequency.exponentialRampToValueAtTime(1200, T + 0.18);
+    v.lfo(7, 22, o.detune, T, T + 0.185);
     var gb = v.gain();
-    shape(gb.gain, [[T, 0], [T + 0.02, a * 0.5], [T + 0.225, a * 0.5], [T + 0.24, 0]]);
+    shape(gb.gain, [[T, 0], [T + 0.02, a * 0.5], [T + 0.165, a * 0.5], [T + 0.18, 0]]);
     var bp = v.filter('bandpass', 300, 9, gb);
     bp.frequency.setValueAtTime(300, T);
-    bp.frequency.exponentialRampToValueAtTime(1200, T + 0.24);
-    v.noise(T, T + 0.245, bp);
+    bp.frequency.exponentialRampToValueAtTime(1200, T + 0.18);
+    v.noise(T, T + 0.185, bp);
   }, { sustain: true });
 
   // 3.82 mustache boing: sine 220 Hz with a 30 Hz pitch wobble (180 ms)
   cue('boing', 3.82, 0.19, 'med', function (v, T) {
-    var g = v.gain(v.sat(LV.med * 0.62));
+    var g = v.gain(v.sat(LV.med * 1.1)); // loud enough to survive a phone speaker (was 10 dB under the bonk there)
     perc(g.gain, T, 2.0, 0.002, 0.18);
     var o = v.osc('sine', 220, T, T + 0.19, g);
     v.lfo(30, [[T, 420], [T + 0.18, 40]], o.detune, T, T + 0.19);
@@ -431,18 +441,19 @@
     v.noise(T, T + 0.085, lp);
   });
 
-  // 4.92 hanko stamp: sine 100 -> 50 Hz (150 ms) + a 30 ms noise hit
-  cue('stamp', 4.92, 0.16, 'high', function (v, T) {
-    var gt = v.gain(v.sat(LV.high * 0.8));
+  // 4.98 hanko stamp: sine 100 -> 50 Hz (150 ms) + a 30 ms noise hit, on the stamp's visible contact (fx lands it 4.98)
+  // (the thud starts higher and the hit sits at 1.2 kHz so the stamp still lands on a phone speaker)
+  cue('stamp', 4.98, 0.16, 'high', function (v, T) {
+    var gt = v.gain(v.sat(LV.high * 0.95));
     perc(gt.gain, T, 2.6, 0.0015, 0.15);
-    var o = v.osc('sine', 100, T, T + 0.16, gt);
-    o.frequency.exponentialRampToValueAtTime(50, T + 0.15);
+    var o = v.osc('sine', 180, T, T + 0.16, gt);
+    o.frequency.exponentialRampToValueAtTime(55, T + 0.15);
     var gn = v.gain();
-    perc(gn.gain, T, LV.high * 2.8, 0.0005, 0.03);
-    v.noise(T, T + 0.035, v.filter('bandpass', 750, 0.75, gn));
+    perc(gn.gain, T, LV.high * 3.2, 0.0005, 0.05);
+    v.noise(T, T + 0.055, v.filter('bandpass', 1200, 0.9, gn));
   });
-  // 4.97 one wood-block gavel knock: sine 900 Hz, 40 ms
-  cue('gavel', 4.97, 0.05, 'high', function (v, T) {
+  // 5.03 one wood-block gavel knock: sine 900 Hz, 40 ms
+  cue('gavel', 5.03, 0.05, 'high', function (v, T) {
     var g = v.gain();
     perc(g.gain, T, LV.high * 0.75, 0.0005, 0.04);
     var o = v.osc('sine', 960, T, T + 0.045, g);
@@ -452,17 +463,18 @@
     v.osc('sine', 900 * 2.32, T, T + 0.02, g2);
   });
 
-  // 4.96-5.40 deflate: sine 600 -> 180 Hz slide with a 6 Hz wobble (sad, droopy)
-  cue('deflate', 4.96, 0.45, 'low', function (v, T) {
+  // 5.04-5.44 deflate: sine 600 -> 180 Hz slide with a 6 Hz wobble (sad, droopy). It starts with his face falling (5.04)
+  // and is gone just before the 5.46 hard cut to the photo.
+  cue('deflate', 5.04, 0.41, 'low', function (v, T) {
     var g = v.gain(), a = LV.low * 0.65;
-    shape(g.gain, [[T, 0], [T + 0.03, a], [T + 0.36, a * 0.85], [T + 0.44, 0]]);
+    shape(g.gain, [[T, 0], [T + 0.03, a], [T + 0.33, a * 0.85], [T + 0.40, 0]]);
     var wob = v.gain(g, 0.8);
-    v.lfo(6, 0.2, wob.gain, T, T + 0.445);
-    var o = v.osc('sine', 600, T, T + 0.445, wob);
-    o.frequency.exponentialRampToValueAtTime(180, T + 0.44);
-    v.lfo(6, 45, o.detune, T, T + 0.445);
-    var o2 = v.osc('triangle', 600, T, T + 0.445, v.gain(wob, 0.35));
-    o2.frequency.exponentialRampToValueAtTime(180, T + 0.44);
+    v.lfo(6, 0.2, wob.gain, T, T + 0.405);
+    var o = v.osc('sine', 600, T, T + 0.405, wob);
+    o.frequency.exponentialRampToValueAtTime(180, T + 0.40);
+    v.lfo(6, 45, o.detune, T, T + 0.405);
+    var o2 = v.osc('triangle', 600, T, T + 0.405, v.gain(wob, 0.35));
+    o2.frequency.exponentialRampToValueAtTime(180, T + 0.40);
   }, { sustain: true });
 
   // 5.54 shutter ka-chak: two band-passed noise clicks 60 ms apart (2 kHz and 3.5 kHz centers)
@@ -518,7 +530,12 @@
     ctx: null, ac: null, chain: null, muted: true, voices: [],
     synced: false, head: 0, offset: 0, lead: PRE, lastP: 0, epoch: 0, soft: 0,
     suspendTimer: 0, lastResume: 0, log: null,
+    // every scheduled cue occurrence, keyed id@A: 'live' (scheduled, not cancelled) or 'cut' (it started, then was
+    // stopped by a restart). A live key is never scheduled again; a cut one may only resume partway (sustained cues).
+    played: {},
+    unmutedAt: 0, listeners: [],
   };
+  function cueKey(c, A) { return c.id + '@' + A.toFixed(4); }
 
   function AudioCtor() { return window.AudioContext || window.webkitAudioContext || null; }
   function ensureContext() {
@@ -529,7 +546,18 @@
       try { S.ac = new AC(); } catch (e2) { return null; }
     }
     S.chain = buildChain(S.ac, 0);
+    // the OS can take the output away while we think we are playing (iOS call or Siri: 'interrupted', older WebKit:
+    // 'suspended'). Fall back to muted and tell the UI, so the next tap resumes inside a gesture instead of muting.
+    var onState = function () {
+      var st = S.ac && S.ac.state;
+      if (S.muted || st === 'running') return;
+      if (st === 'interrupted' || st === 'closed' || (st === 'suspended' && Date.now() - S.unmutedAt > 1500)) setMuted(true);
+    };
+    if (S.ac.addEventListener) S.ac.addEventListener('statechange', onState); else S.ac.onstatechange = onState;
     return S.ac;
+  }
+  function notifyMuted() {
+    for (var i = 0; i < S.listeners.length; i++) { try { S.listeners[i](S.muted); } catch (e) { /* ignore */ } }
   }
   // iOS: a one-sample silent buffer played inside the gesture unlocks output
   function unlock(ac) {
@@ -554,6 +582,8 @@
 
   function killVoice(v, now, fade) {
     if (S.log && v.start > now + fade) record(v.cue, v.A, v.T, now, 'cancel');
+    var key = cueKey(v.cue, v.A);
+    if (v.start > now) delete S.played[key]; else if (S.played[key]) S.played[key].st = 'cut';
     try { holdAt(v.out.gain, now); v.out.gain.linearRampToValueAtTime(0, now + fade); } catch (e) { /* ignore */ }
     for (var i = 0; i < v.srcs.length; i++) {
       try { v.srcs[i].stop(now + fade + 0.005); } catch (e) { /* already stopped */ }
@@ -576,6 +606,9 @@
       else if (allowPartial && c.sustain && T >= 0 && T + c.dur > now + 0.08) how = 'partial';
       else { record(c, A, T, now, 'skip'); return; }
     }
+    var key = cueKey(c, A), prev = S.played[key];
+    if (prev && (prev.st === 'live' || how !== 'partial')) { record(c, A, T, now, 'dup'); return; }
+    S.played[key] = { A: A, st: 'live' };
     var v = playCue(S.ac, S.chain.master, c, T, T - c.t, A, how === 'partial', now);
     S.voices.push(v);
     record(c, A, T, now, how);
@@ -625,15 +658,16 @@
         S.synced = false; // jump (seek, stall, tab switch): restart cleanly below
       } else if (Math.abs(drift) > DRIFT_SOFT || Math.abs(lead - S.lead) > 0.004) {
         // re-anchor (clock drift, or the output latency became known or changed): cancel the cues that have not
-        // started yet and schedule them again on the new mapping
-        var minA = P;
+        // started yet and schedule them again on the new mapping. The head only rewinds to the earliest CANCELLED cue:
+        // a cue that already started keeps sounding and must not be scheduled a second time.
+        var minA = Infinity;
         S.voices = S.voices.filter(function (v) {
           if (v.start > now + 0.002) { killVoice(v, now, 0.005); minA = Math.min(minA, v.A); return false; }
           return true;
         });
         S.offset = now - P;
         S.lead = lead;
-        S.head = Math.min(S.head, minA);
+        if (minA !== Infinity) S.head = Math.min(S.head, minA);
         S.soft++;
       } else {
         S.offset += drift * 0.03; // follow slow drift between the frame clock and the audio clock
@@ -641,6 +675,8 @@
     }
     if (!S.synced) {
       killAll(now, 0.025);
+      // going back (seek, loop restart from QA) or far ahead: those positions may legitimately sound again
+      if (P < S.lastP - 0.001 || P > S.lastP + 1) S.played = {};
       S.epoch++;
       S.offset = now - P;
       S.lead = leadTime(ac);
@@ -655,8 +691,9 @@
       scheduleRange(S.head, end, now);
       S.head = end;
     }
-    // forget finished voices
+    // forget finished voices and old cue keys
     if (S.voices.length) S.voices = S.voices.filter(function (v) { return v.end > now; });
+    for (var key in S.played) if (S.played[key].A < P - 2) delete S.played[key];
   }
 
   // ---------------------------------------------------------------- public API
@@ -675,6 +712,7 @@
         g.linearRampToValueAtTime(LEVEL, now + 0.03);
         S.muted = false;
         S.synced = false;
+        S.unmutedAt = Date.now();
         if (LB.clock) tick(LB.clock.t, LB.clock.loops);
       }
       return;
@@ -682,6 +720,7 @@
     if (S.muted) return;
     S.muted = true;
     S.synced = false;
+    notifyMuted();
     if (!S.ac) return;
     var a = S.ac, t0 = a.currentTime, mg = S.chain.master.gain;
     holdAt(mg, t0);
@@ -721,6 +760,8 @@
     update: function (t, loops) { tick(t, loops); },
     setMuted: setMuted,
     isMuted: function () { return S.muted; },
+    // optional (UI): fn(muted) when audio mutes itself (output interrupted). Not called for setMuted(false).
+    onMutedChange: function (fn) { if (typeof fn === 'function') S.listeners.push(fn); },
     renderLoop: renderLoop,
     cueSheet: function () {
       return CUES.map(function (c) { return { id: c.id, t: c.t, dur: c.dur, level: c.level }; });

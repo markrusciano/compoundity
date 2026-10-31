@@ -2,6 +2,8 @@
 (function () {
   'use strict';
   var LB = window.LB;
+  // T13: numeric state fields go through num(): anything that is not a finite number falls back to the default
+  function num(v, d) { return typeof v === 'number' && isFinite(v) ? v : d; }
 
   // ------------------------------------------------------------------ tiny affine math (SVG matrix order a b c d e f)
   function mul(m, n) {
@@ -155,8 +157,10 @@
     var hd = F.head(headG, { w: 92, top: -54, chin: 55, cheekY: 4, jawY: 32, jaw: 0.7, chinW: 28, earY: 3, earH: 25, earW: 9.5,
       neckW: 46, neckTop: 26, neckBot: 70, skin: P.skin, skinShadow: P.skinShadow });
     LB.show(hd.neck, false);
-    // temple shade under the swept-up hair (inside the face clip)
-    LB.path(hd.face.inner, 'M-60 -60L60 -60L60 -40C46 -41 38 -40 30 -38C20 -40.5 10 -41.5 0 -40.5C-12 -41.5 -24 -41 -34 -37C-44 -37 -52 -38 -60 -38Z', fl(P.skinShadow));
+    // temple shade under the swept-up hair (inside the face clip). The hairline sits high (about y -47 at the centre), as in
+    // the photo, so more forehead shows and the hair no longer frames the face like a helmet.
+    LB.path(hd.face.inner, 'M-60 -60L60 -60L60 -30L44 -30C42.4 -32 40.6 -34 37.5 -37C31 -42.5 21 -44.7 11 -44.9C7 -45.9 3 -45.1 -1 -45.5' +
+      'C-8 -45.9 -15 -45.3 -22 -44.5C-30 -43.3 -37.6 -38.9 -41.2 -32.5L-44 -30L-60 -30Z', fl(P.skinShadow));
 
     var feat = LB.g(headG);
     var face = F.create(feat, {
@@ -181,7 +185,8 @@
     };
     var clearG = LB.g(glassesG);
     LB.path(clearG, lensBoth, fl(C.lensTint, { opacity: 0.2 }));
-    LB.path(clearG, streak(-1) + streak(1), fl('#FFFFFF', { opacity: 0.6, 'clip-path': lcp, 'data-sil': 'hide' }));
+    // the glare stays soft (0.32) so an iris sliding to the lens's outer half still reads through it
+    LB.path(clearG, streak(-1) + streak(1), fl('#FFFFFF', { opacity: 0.32, 'clip-path': lcp, 'data-sil': 'hide' }));
     LB.path(clearG, lensBoth, ol(1.0, C.lensEdge));
     LB.path(clearG, 'M10.6 10.2L28.4 10.2M-10.6 10.2L-28.4 10.2', ol(1.35, C.lensEdge));
     var opaqueG = LB.g(glassesG);
@@ -202,13 +207,14 @@
     };
     GAPS.o = GAPS.whistle = GAPS.closed;
     var beard = (function () {
-      var OE = [[-48.2, -1], [-48.6, 12], [-46.4, 24], [-42, 34], [-34.5, 44], [-24.5, 52.5], [-12.5, 58.2], [0, 60.2], [12.5, 58.2], [24.5, 52.5], [34.5, 44], [42, 34], [46.4, 24], [48.6, 12], [48.2, -1]];
+      // short and close-trimmed: the hem hugs the jaw about 2.5 below the chin (photo), with a light jag
+      var OE = [[-48.2, -1], [-48.6, 12], [-46.4, 24], [-42, 34], [-34.5, 43.4], [-24.5, 51.2], [-12.5, 55.8], [0, 57.5], [12.5, 55.8], [24.5, 51.2], [34.5, 43.4], [42, 34], [46.4, 24], [48.6, 12], [48.2, -1]];
       // jagged lower edge: every other sample below y 38 pushed out a little
       var Cs = F.crSample(OE, 4), out = [];
       Cs.forEach(function (p, i) {
         var a = Cs[Math.max(0, i - 1)], b = Cs[Math.min(Cs.length - 1, i + 1)];
         var nx = (b[1] - a[1]), ny = -(b[0] - a[0]), l = Math.hypot(nx, ny) || 1;
-        var k = p[1] > 38 && i % 2 ? 2.1 : 0;
+        var k = p[1] > 38 && i % 2 ? 1.4 : 0;
         out.push([p[0] + nx / l * k, p[1] + ny / l * k]);
       });
       // cheek line (right to left) with stubble notches, moustache top under the nose
@@ -244,18 +250,18 @@
     var hairD = 'M-48 7L-48.6 -14C-49.4 -24 -49 -36 -44.5 -45C-40.4 -52.4 -33.4 -56.6 -26 -58.2Q-22 -61.6 -16.5 -63.2Q-15 -60.6 -12 -59.6' +
       'Q-6 -64.6 1 -65.6Q2.6 -62.2 5 -60.6Q11 -64.2 18.4 -63.6Q19.2 -60.6 22 -59.2Q29 -59.2 35.6 -56.4Q35.4 -54.4 37.4 -53.4' +
       'C43.4 -49 48 -40 48.6 -30C49 -24 48.8 -18 48.6 -14L48 7L43.2 7L43.6 -14' +
-      'C43.6 -22 41.4 -30 36 -35C29 -40.6 20 -41.6 11 -41.2C7 -42.6 3 -41 -1 -40.6C-8 -41.6 -15 -41.6 -22 -41C-30 -39.6 -37.6 -36 -41.4 -30C-43.4 -26 -43.6 -20 -43.6 -14L-43.2 7Z';
+      'C43.6 -24 42 -33 37.5 -38.5C31 -44 21 -46.2 11 -46.4C7 -47.4 3 -46.6 -1 -47C-8 -47.4 -15 -46.8 -22 -46C-30 -44.8 -37.6 -40.4 -41.2 -34C-43.4 -29 -43.6 -21 -43.6 -14L-43.2 7Z';
     var hc = F.cel(hairFront, { flat: true, d: hairD, fill: P.hair, shadow: P.hairShadow,
       shadowD: 'M12 -41C24 -44 34 -46 40 -52L60 -52L60 10L44 10C45 -10 42 -28 30 -37C24 -40 18 -41 12 -41Z M-50 -4L-42 -4L-42 10L-50 10Z',
       lw: LW.inner });
     // swept-up lock separations (tapered, hair shadow) and a broken anime shine band
     LB.path(hairFront, [
-      [[[-36, -37], [-33, -46], [-27, -53], [-19, -59.5]], 1.7],
-      [[[-22, -41.2], [-17, -50], [-10, -57], [-1, -62.5]], 1.9],
-      [[[-5, -40.8], [1, -49], [8, -56], [16, -61]], 1.9],
-      [[[11, -41.4], [18, -48.5], [25, -53.5], [33, -56.4]], 1.7],
-      [[[27, -39], [33, -44], [40, -48.5]], 1.4],
-      [[[-43, -27], [-42, -36], [-38, -44]], 1.3],
+      [[[-35, -41], [-32, -48.5], [-27, -54], [-19, -59.5]], 1.7],
+      [[[-22, -45.8], [-17, -52.5], [-10, -58], [-1, -62.5]], 1.9],
+      [[[-5, -46.8], [1, -52.5], [8, -57.5], [16, -61]], 1.9],
+      [[[11, -46.2], [18, -51], [25, -54.5], [33, -56.4]], 1.7],
+      [[[28, -43], [33, -46], [40, -49.5]], 1.4],
+      [[[-42.6, -30], [-41.6, -38], [-38, -45]], 1.3],
     ].map(function (l) { return F.taperD(l[0], [0.2, l[1], l[1] * 0.8, 0]); }).join(''), fl(P.hairShadow));
     LB.path(hairFront, F.taperD([[-30, -47.5], [-24, -51.5], [-18, -54]], [0, 2.6, 0]) + F.taperD([[-13, -53.5], [-6, -56.5], [1, -58]], [0, 2.8, 0]) +
       F.taperD([[5, -55.5], [11, -57.6], [16, -58.4]], [0, 2.2, 0]), fl(P.hairShine, { 'data-sil': 'hide' }));
@@ -398,14 +404,14 @@
       var hidden = !!s.hidden;
       vis(root, 'hidden', !hidden);
       if (hidden) { last.state = s; return; }
-      var x = s.x != null ? +s.x : FEET[0], y = s.y != null ? +s.y : FEET[1];
-      var k = s.scale != null ? +s.scale : 1, sx = s.sx != null ? +s.sx : 1, sy = s.sy != null ? +s.sy : 1;
-      var lean = s.lean != null ? +s.lean : 0;
-      var tilt = s.headTilt != null ? +s.headTilt : TILT0;
-      var bob = (+s.bob || 0) - (+s.breathe || 0) * 1.6 * (0.5 + 0.5 * LB.loopSin(s.t || 0, 3));
-      var squash = s.headSquash != null ? clamp(+s.headSquash, 0.5, 1.5) : 1;
-      var st = clamp(+s.steeple || 0, 0, 1);
-      M.root = chain(T(x, y), R(+s.rot || 0), Sc(k * sx, k * sy), T(-FEET[0], -FEET[1]));
+      var x = num(s.x, FEET[0]), y = num(s.y, FEET[1]);
+      var k = num(s.scale, 1), sx = num(s.sx, 1), sy = num(s.sy, 1);
+      var lean = num(s.lean, 0);
+      var tilt = num(s.headTilt, TILT0);
+      var bob = num(s.bob, 0) - num(s.breathe, 0) * 1.6 * (0.5 + 0.5 * LB.loopSin(s.t || 0, 3));
+      var squash = clamp(num(s.headSquash, 1), 0.5, 1.5);
+      var st = clamp(num(s.steeple, 0), 0, 1);
+      M.root = chain(T(x, y), R(num(s.rot, 0)), Sc(k * sx, k * sy), T(-FEET[0], -FEET[1]));
       M.lean = chain(T(0, bob), T(HIP[0], HIP[1]), R(lean), T(-HIP[0], -HIP[1]));
       M.head = chain(T(NECK[0], NECK[1]), R(tilt), Sc(1, squash), T(0, FACE_UP));
       setT(root, 'root', M.root);
@@ -458,11 +464,11 @@
       vis(opaqueG, 'gopaque', opaque);
       vis(face.layers.eyes, 'eyesv', !opaque);
       var turn = clamp(+s.headTurn || 0, -1, 1);
-      M.glasses = chain(T(turn * 40 * 0.28, -3), R(+s.glassesTilt || 0), T(0, 3));
+      M.glasses = chain(T(turn * 40 * 0.28, -3), R(num(s.glassesTilt, 0)), T(0, 3));
       setT(glassesG, 'gl', M.glasses);
 
       // bump + stars
-      var bump = clamp(+s.bump || 0, 0, 1.3);
+      var bump = clamp(num(s.bump, 0), 0, 1.3);
       vis(bumpG, 'bumpv', bump > 0.01);
       if (bump > 0.01) setT(bumpG, 'bump', chain(T(0, BUMP_BASE), Sc(bump, bump)));
       var sk = clamp(+s.stars || 0, 0, 1);

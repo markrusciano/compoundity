@@ -64,6 +64,9 @@ fs.mkdirSync(opt.out, { recursive: true });
       await pg.evaluate((tt) => { window.LB.pause(); window.LB.seek(tt); }, t);
       await pg.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
       await pg.evaluate((tt) => { window.LB.seek(tt); }, t);
+      // --full: settle the Vine chrome's CSS transitions (e.g. the "Tap for sound" fold that a seek past 4.0 triggers), so
+      // the still shows the UI as it looks in live play at that time rather than mid-transition
+      if (opt.full) await pg.evaluate(() => { (document.getAnimations ? document.getAnimations() : []).forEach((a) => { try { a.finish(); } catch (e) { /* infinite */ } }); });
       const f = path.join(opt.out, `t${t.toFixed(2).padStart(5, '0')}.png`);
       await target.screenshot({ path: f });
       files.push({ f, t: t.toFixed(2) + 's' });

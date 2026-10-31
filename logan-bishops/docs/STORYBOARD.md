@@ -340,3 +340,12 @@ All melodic material is original. Schedule every cue per loop from the AudioCont
 - **Eye-slide made spatial:** the billboard is visible at the top edge of the dead-air close-up, and the crash zoom keeps the Friar's bump under it.
 - **Reset:** Pitch 0's flash plus shutter, made readable with sound off by a phone focus square, landing on the exact photo frame. Pitch 1's King sweat drop is the seam tell.
 - **Grafted chrome:** loop counter seeded over 1 billion (Pitch 2) and a "Logan Square, Chicago" location line, so "Logan" is grounded without a text card.
+
+## Revision notes (polish round)
+Timings and positions moved during the critique and fix round; `src/director.js`, `src/fx.js` and `src/audio.js` are the
+reference. The main changes:
+- Case Dismissed now plays smug, then the stamp, then crushed: the hanko lands at 4.98 (shake and stamp sound together),
+  the gavel follows at 5.03, the deflate at 5.04 (ending 5.44, so the 5.46 cut is silent), and the gloom fades in from 5.08
+  and stops above the Friar's brows.
+- The slide whistle on the healer tilt starts at 3.62 and tops out at 3.80.
+- The ゴン!! card sits at (582,162), clear of the lifted knob and the mitre silhouette in the impact frame.

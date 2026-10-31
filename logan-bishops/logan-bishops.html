@@ -3,10 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Logan Bishops</title>
+<title>The Logan Bishops | a Vine-style loop</title>
+<meta name="description" content="it was a CEREMONIAL bonk, your honor">
+<meta property="og:title" content="The Logan Bishops">
+<meta property="og:description" content="it was a CEREMONIAL bonk, your honor. A fan-made, Vine-style anime loop.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#00BF8F">
+<link rel="icon" href='data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"%3E%3Cdefs%3E%3CclipPath id="c"%3E%3Ccircle cx="24" cy="24" r="24"/%3E%3C/clipPath%3E%3C/defs%3E%3Ccircle cx="24" cy="24" r="24" fill="%2300BF8F"/%3E%3Cg clip-path="url(%23c)" fill="%23fff" stroke="%2300BF8F" stroke-width="1.6" stroke-linejoin="round" paint-order="stroke"%3E%3Cpath d="M26 50c0-11.5 3.8-16.5 9.5-16.5S45 38.5 45 50z"/%3E%3Cpath d="M3 50c0-10.5 3.9-15 9.6-15s9.6 4.5 9.6 15z"/%3E%3Cpath d="M12.8 50c0-11.2 4.6-16.2 11.2-16.2S35.2 38.8 35.2 50z"/%3E%3Ccircle cx="35.6" cy="25.2" r="4.9"/%3E%3Ccircle cx="12.6" cy="27.8" r="4.9"/%3E%3Ccircle cx="24" cy="26.6" r="5.5"/%3E%3Cpath transform="rotate(10 12.6 27.8)" d="M7.2 24.9l-.9-7.1 3.5 3 2.8-5 2.8 5 3.5-3-.9 7.1z"/%3E%3Cpath transform="rotate(-5 35.6 25.2)" stroke-width="1.3" stroke-miterlimit="8" stroke-linejoin="miter" d="M30.5 22.7l-.7-10.1C30.6 8.6 33 5.6 35.6 3.1c2.6 2.5 5 5.5 5.8 9.5l-.7 10.1z"/%3E%3C/g%3E%3C/svg%3E'>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@500;700;800;900&family=Mochiy+Pop+One&family=Pacifico&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<!-- Display fonts as one tiny text= subset (about 1 KB of CSS instead of 180 KB). The text list MUST contain every
+     character drawn in these fonts: the fx.js card strings (ゴン!! 訴訟編 THE LAWSUIT ARC CLASS: HEALER +999 HP 却下
+     CASE DISMISSED) and the ui.js wordmark (Vine). Signage text in the world is baked to paths (tools/bake-text.cjs). -->
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@900&family=Pacifico&text=%E3%82%B4%E3%83%B3%21%E8%A8%B4%E8%A8%9F%E7%B7%A8%E5%8D%B4%E4%B8%8BTHE%20LAWSUIT%20ARC%20CASE%20DISMISSED%20CLASS%3A%20HEALER%20%2B999%20HP%20Vine&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   /* base styles only; ui.js injects the Vine app chrome styles */
   html, body { margin: 0; padding: 0; background: #e9ecea; color: #222; }
@@ -79,7 +89,7 @@
   LB.opacity = function (node, k) { node.setAttribute('opacity', r4(LB.clamp(k, 0, 1))); };
 
   // ---------------------------------------------------------------- math
-  LB.clamp = function (v, a, b) { return v < a ? a : v > b ? b : v; };
+  LB.clamp = function (v, a, b) { return v < a ? a : v > b ? b : v === v ? v : a; }; // NaN -> a
   LB.lerp = function (a, b, k) { return a + (b - a) * k; };
   LB.invLerp = function (a, b, v) { return a === b ? 0 : (v - a) / (b - a); };
   LB.remap = function (v, a, b, c, d) { return LB.lerp(c, d, LB.clamp(LB.invLerp(a, b, v), 0, 1)); };
@@ -238,6 +248,9 @@
       return s;
     };
     var world = mk('lb-world');
+    // the world svg is its own compositor layer: slow camera pushes scale it there (see LB.applyCamera)
+    world.style.transformOrigin = '50% 50%';
+    world.style.willChange = 'transform';
     var camera = LB.g(world, { class: 'lb-camera' });
     var overlay = mk('lb-overlay');
     var stage = {
@@ -260,15 +273,27 @@
     return stage;
   };
   LB.reducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  // Zoom is split in two: the SVG camera uses the zoom rounded down to a step of a 1.05 ladder (z0), and the remaining
+  // factor s = zoom / z0 (1 .. 1.05) is a CSS scale of the world svg about its centre, done by the compositor. During a
+  // slow push with a fixed centre (billboard, lawsuit, two-shot) the SVG transform string then stays the same for many
+  // frames, so the world is not re-laid out and re-rasterized every frame (that held those beats at 30 fps on a mid
+  // phone); only the parts that animate repaint. The split is a pure function of the camera (the ladder is fixed), and
+  // screen positions are exactly those of a single SVG zoom (shake offsets are divided by s to compensate).
+  var ZSTEP = Math.log(1.05);
   LB.applyCamera = function (stage, cam, t) {
     cam = cam || {};
     var zoom = cam.zoom || 1, x = cam.x != null ? cam.x : 500, y = cam.y != null ? cam.y : 500;
     var sh = LB.shake(t, (cam.shake || 0) * (LB.reducedMotion ? 0.4 : 1), cam.shakeFreq || 24, 3);
     var rot = (cam.rot || 0) + sh.rot;
     stage.cam = { x: x, y: y, zoom: zoom, rot: rot, sx: 500 + sh.x, sy: 500 + sh.y };
-    stage.camera.setAttribute('transform',
-      'translate(' + r4(500 + sh.x) + ' ' + r4(500 + sh.y) + ') rotate(' + r4(rot) + ') scale(' + r4(zoom) + ') translate(' + r4(-x) + ' ' + r4(-y) + ')');
-    stage.world.style.filter = cam.filter || '';
+    var z0 = Math.exp(Math.floor(Math.log(zoom) / ZSTEP + 1e-6) * ZSTEP), s = zoom / z0;
+    if (s < 1.0005) { s = 1; z0 = zoom; }
+    var tr = 'translate(' + r4(500 + sh.x / s) + ' ' + r4(500 + sh.y / s) + ') rotate(' + r4(rot) + ') scale(' + r4(z0) + ') translate(' + r4(-x) + ' ' + r4(-y) + ')';
+    var css = s === 1 ? '' : 'scale(' + r4(s) + ')', st = stage.__camCache || (stage.__camCache = {});
+    if (st.tr !== tr) { st.tr = tr; stage.camera.setAttribute('transform', tr); }
+    if (st.css !== css) { st.css = css; stage.world.style.transform = css; }
+    var flt = cam.filter || '';
+    if (st.flt !== flt) { st.flt = flt; stage.world.style.filter = flt; }
   };
   // world point -> screen point (overlay viewBox units, 0..1000) for the camera applied this frame
   LB.worldToScreen = function (stage, p) {
@@ -279,18 +304,63 @@
 
   // Silhouette mode for impact frames: LB.silhouette(root, on, color) paints every shape in `root` one flat color.
   // Mark decorative bits that should vanish in silhouette (highlights, glows) with data-sil="hide".
+  // It is an SVG filter (a color matrix: rgb = the color, alpha kept) set on the root, not a `.lb-sil *` paint override:
+  // that forced a style recalc and layout-tree rebuild over about 1000 elements, so on a mid phone the 70 ms impact
+  // frame showed for one frame and the next drawings were dropped. The hide rule only touches [data-sil] elements, and
+  // visibility (not display) needs no layout. The DOM is only touched when the state changes.
   (function injectCss() {
-    var css = '.lb-sil, .lb-sil * { fill: var(--lb-sil, #000) !important; stroke: var(--lb-sil, #000) !important; }' +
-      '.lb-sil [fill="none"] { fill: none !important; }' +
-      '.lb-sil [stroke="none"] { stroke: none !important; }' +
-      '.lb-sil [data-sil="hide"] { display: none !important; }';
+    // (a nested clone sits right after its outer root and vanishes with it when the rig hides the root: hidden: true)
+    var css = '.lb-sil [data-sil="hide"] { visibility: hidden !important; }' +
+      '[style*="display: none"] + [data-lb-silclone], [style*="display:none"] + [data-lb-silclone] { display: none !important; }';
     var s = document.createElement('style');
     s.textContent = css;
     (document.head || document.documentElement).appendChild(s);
   })();
+  var silFilter = {}; // color -> filter id (per document; the world svg's defs)
+  function silFilterId(root, color) {
+    var svg = root.ownerSVGElement || root;
+    var key = color + '|' + (svg.__lbSvgId || (svg.__lbSvgId = LB.uid('lbsvg')));
+    if (silFilter[key]) return silFilter[key];
+    var id = LB.uid('lbsil');
+    var f = LB.el('filter', { id: id, x: '-5%', y: '-5%', width: '110%', height: '110%', 'color-interpolation-filters': 'sRGB' }, LB.defs(svg));
+    // one primitive: rgb = the color, alpha kept
+    var c = hex(color.charAt(0) === '#' ? color : '#000').map(function (v) { return r4(v / 255); });
+    LB.el('feColorMatrix', { type: 'matrix', values: '0 0 0 0 ' + c[0] + ' 0 0 0 0 ' + c[1] + ' 0 0 0 0 ' + c[2] + ' 0 0 0 1 0' }, f);
+    return (silFilter[key] = id);
+  }
+  // A nested call (a part inside a silhouetted root, e.g. the King's scepter in gold over his black figure; call the root
+  // first) cannot escape the root's filter, so it shows a recolored live <use> clone of the part right above the root.
+  function silOuter(node) {
+    for (var p = node.parentNode; p && p.nodeType === 1; p = p.parentNode) if (p.__lbSil) return p;
+    return null;
+  }
   LB.silhouette = function (root, on, color) {
-    if (on) { root.classList.add('lb-sil'); root.style.setProperty('--lb-sil', color || '#000'); }
-    else root.classList.remove('lb-sil');
+    var key = on ? (color || '#000') : '';
+    var outer = on ? silOuter(root) : null;
+    if (root.__lbSil === key && !outer) return;
+    var was = root.__lbSil;
+    root.__lbSil = key;
+    if (outer) {
+      var u = root.__lbSilUse;
+      if (!u) {
+        if (!root.id) root.id = LB.uid('lbsilsrc');
+        u = root.__lbSilUse = LB.el('use', { 'data-lb-silclone': '1' });
+      }
+      if (u.parentNode !== outer.parentNode || u.previousSibling !== outer) outer.parentNode.insertBefore(u, outer.nextSibling);
+      if (was !== key || !u.hasAttribute('href')) { u.setAttribute('filter', 'url(#' + silFilterId(outer, key) + ')'); u.setAttribute('href', '#' + root.id); }
+      (outer.__lbSilClones || (outer.__lbSilClones = [])).indexOf(u) < 0 && outer.__lbSilClones.push(u);
+      // place the clone in the outer root's parent space (only while on: a few frames per loop)
+      var a = outer.parentNode.getCTM(), b = root.parentNode.getCTM();
+      if (a && b) {
+        var m = a.inverse().multiply(b);
+        u.setAttribute('transform', 'matrix(' + [m.a, m.b, m.c, m.d, m.e, m.f].map(r4).join(' ') + ')');
+      }
+      return;
+    }
+    if (root.__lbSilUse) root.__lbSilUse.removeAttribute('href'); // no reference while off: no clone upkeep
+    if (!on && root.__lbSilClones) root.__lbSilClones.forEach(function (c) { c.removeAttribute('href'); });
+    if (on) { root.setAttribute('filter', 'url(#' + silFilterId(root, key) + ')'); root.classList.add('lb-sil'); }
+    else { root.removeAttribute('filter'); root.classList.remove('lb-sil'); }
   };
 
   // resolve a position given as {x, y} (world) or as an anchor ref string 'who.name' (e.g. 'friar.lensR')
@@ -364,7 +434,7 @@
       friar: {
         skin: '#F2C9AE', skinShadow: '#DBA185', lip: '#D88A82',
         hair: '#5A4030', hairShadow: '#3B291E', hairShine: '#7E5E48',
-        beard: '#5A4030', beardShadow: '#3B291E',
+        beard: '#664A36', beardShadow: '#47321F',   // a touch lighter than the hair: short, close-trimmed (photo)
         iris: '#5D7486', irisDark: '#2F3E4C', irisLight: '#93AABB', brow: '#3F2C21',
         robe: '#C9A27E', robeShadow: '#9E7656', robeMottle: '#DDBB97',
         tee: '#1C1C1F', teeShadow: '#0C0C0E',
@@ -436,7 +506,8 @@
     return 'M' + pt(L[0]) + crSeg(L, false) + 'L' + pt(R[0]) + crSeg(R, false) + 'Z';
   }
   // A band across a tapered tube from A to B (widths wA, wB). f0..f1 in -1..1 picks the band across the width
-  // (-1 = left side when walking A->B, +1 = right side). caps: round caps at both ends when the band is the full tube.
+  // (-1 = left side when walking A->B, +1 = right side). caps: round caps at both ends when the band is the full tube
+  // (sweep 1, so they bulge OUTWARD: two tubes sharing a joint overlap into one rounded elbow with no notch).
   function tubeD(A, B, wA, wB, f0, f1, caps) {
     if (f0 == null) { f0 = -1; f1 = 1; }
     var dx = B[0] - A[0], dy = B[1] - A[1], d = Math.hypot(dx, dy) || 1;
@@ -444,8 +515,8 @@
     function P(base, w, f) { return [base[0] + nx * w / 2 * f, base[1] + ny * w / 2 * f]; }
     var a0 = P(A, wA, f0), a1 = P(A, wA, f1), b0 = P(B, wB, f0), b1 = P(B, wB, f1);
     if (caps && f0 === -1 && f1 === 1) {
-      return 'M' + pt(a0) + 'L' + pt(b0) + 'A' + n2(wB / 2) + ' ' + n2(wB / 2) + ' 0 0 0 ' + pt(b1) +
-        'L' + pt(a1) + 'A' + n2(wA / 2) + ' ' + n2(wA / 2) + ' 0 0 0 ' + pt(a0) + 'Z';
+      return 'M' + pt(a0) + 'L' + pt(b0) + 'A' + n2(wB / 2) + ' ' + n2(wB / 2) + ' 0 0 1 ' + pt(b1) +
+        'L' + pt(a1) + 'A' + n2(wA / 2) + ' ' + n2(wA / 2) + ' 0 0 1 ' + pt(a0) + 'Z';
     }
     return 'M' + pt(a0) + 'L' + pt(b0) + 'L' + pt(b1) + 'L' + pt(a1) + 'Z';
   }
@@ -629,7 +700,7 @@
     eyeSpacing: 38, eyeW: 22, eyeH: 11.5, irisColor: '#6E4E33', irisDark: null, irisLight: null, pupil: null,
     lashColor: null, browColor: '#4A3122', browW: null, browT: null, browY: -11, mouthY: 33, mouthW: 16,
     mustache: false, lids: 'normal', skin: null, skinShadow: null, sweatAt: { x: 40, y: -20 }, cheekY: 14,
-    nose: true, noseY: 19, lipColor: null, oneUpSide: 1, faceClip: null, sweatScale: 1,
+    nose: true, noseY: 19, lipColor: null, oneUpSide: 1, faceClip: null, sweatScale: 1, gazeUp: 0.1,
   };
 
   // LB.face.create(parentG, opts) -> { g, update(state), layers: { eyes, brows, mouth, nose, sweat, blush }, opts }
@@ -638,7 +709,9 @@
   // opts (all optional): eyeSpacing 38, eyeW 22, eyeH 11.5, irisColor, irisDark, irisLight, pupil, lashColor, browColor,
   //   browW (1.12 eyeW), browT (0.17 eyeW), browY -11, mouthY 33, mouthW 16, mustache false, lids 'normal'|'heavy',
   //   skin, skinShadow, sweatAt {x: 40, y: -20}, sweatScale 1, cheekY 14, nose true, noseY 19, lipColor null,
-  //   oneUpSide 1 (which brow 'oneUp' raises: 1 = screen-right), faceClip (head().clipId, enables shadowFace).
+  //   oneUpSide 1 (which brow 'oneUp' raises: 1 = screen-right), faceClip (head().clipId, enables shadowFace),
+  //   gazeUp 0.1 (iris travel per unit of upward gaze, in eyeH; downward is 0.24. Small, so an upward glance stays a sideways
+  //   slide under the heavy deadpan lid instead of rolling the iris out of sight).
   // state: eyes, brows, mouth (names in EYES/BROWS/MOUTHS, unknown -> default), gazeX, gazeY (-1..1), sweat, blush,
   //   shadowFace (0..1), headTurn (-1..1).
   function create(parentG, opts) {
@@ -909,7 +982,7 @@
           }
         }
         var ix = e.s * 0.02 * w + gx * (0.5 * w - irx - 1.0);
-        var iy = icy + gy * 0.24 * h;
+        var iy = icy + gy * (gy < 0 ? o.gazeUp : 0.24) * h;
         var isc = ex === 'droop' ? 0.88 : 1;
         set(e.irisG, 'ig' + i, 'transform', 'translate(' + n2(ix) + ' ' + n2(iy) + ') scale(' + isc + ')');
         set(e.irisE, 'if' + i, 'fill', ex === 'hero' ? heroIris : iris);
@@ -969,6 +1042,10 @@
 (function () {
   'use strict';
   var LB = window.LB;
+  // T13: numeric state fields go through num(): anything that is not a finite number falls back to the default
+  function num(v, d) { return typeof v === 'number' && isFinite(v) ? v : d; }
+  // Source Sans 3 700, 9.5 units, centred at (314,512): the tee print as path data (from tools/bake-text.cjs)
+  var NIGHT_D = 'M304.9 512L303.5 512L303.5 507.3L304.7 507.3L304.8 507.9L304.8 507.9Q305.1 507.6 305.5 507.4Q305.8 507.2 306.3 507.2L306.3 507.2Q307.1 507.2 307.4 507.7Q307.8 508.2 307.8 509.1L307.8 509.1L307.8 512L306.4 512L306.4 509.3Q306.4 508.7 306.2 508.6Q306.1 508.4 305.8 508.4L305.8 508.4Q305.5 508.4 305.3 508.5Q305.1 508.6 304.9 508.8L304.9 508.8L304.9 512ZM310.3 512L308.9 512L308.9 507.3L310.3 507.3L310.3 512ZM309.6 506.6L309.6 506.6Q309.3 506.6 309.1 506.4Q308.8 506.2 308.8 505.9L308.8 505.9Q308.8 505.5 309.1 505.3Q309.3 505.1 309.6 505.1L309.6 505.1Q310 505.1 310.2 505.3Q310.4 505.5 310.4 505.9L310.4 505.9Q310.4 506.2 310.2 506.4Q310 506.6 309.6 506.6ZM313.2 514L313.2 514Q312.7 514 312.2 513.9Q311.8 513.7 311.5 513.5Q311.3 513.2 311.3 512.8L311.3 512.8Q311.3 512.5 311.4 512.3Q311.6 512 311.9 511.9L311.9 511.9L311.9 511.8Q311.8 511.7 311.6 511.5Q311.5 511.3 311.5 511L311.5 511Q311.5 510.8 311.7 510.5Q311.8 510.3 312 510.1L312 510.1L312 510.1Q311.8 509.9 311.6 509.6Q311.4 509.3 311.4 508.9L311.4 508.9Q311.4 508.3 311.7 507.9Q312 507.6 312.4 507.4Q312.8 507.2 313.3 507.2L313.3 507.2Q313.5 507.2 313.7 507.2Q313.9 507.2 314.1 507.3L314.1 507.3L315.8 507.3L315.8 508.3L315 508.3L315 508.3Q315.1 508.5 315.2 508.6Q315.2 508.8 315.2 508.9L315.2 508.9Q315.2 509.5 315 509.8Q314.7 510.2 314.3 510.3Q313.9 510.5 313.3 510.5L313.3 510.5Q313.2 510.5 313.1 510.5Q312.9 510.5 312.8 510.4L312.8 510.4Q312.7 510.5 312.7 510.6Q312.6 510.6 312.6 510.8L312.6 510.8Q312.6 510.9 312.8 511Q312.9 511.1 313.3 511.1L313.3 511.1L314.1 511.1Q315 511.1 315.4 511.4Q315.9 511.7 315.9 512.3L315.9 512.3Q315.9 512.8 315.6 513.2Q315.2 513.6 314.6 513.8Q314.1 514 313.2 514ZM313.3 509.7L313.3 509.7Q313.5 509.7 313.7 509.6Q313.8 509.5 313.9 509.3Q314 509.1 314 508.9L314 508.9Q314 508.5 313.8 508.3Q313.6 508.1 313.3 508.1L313.3 508.1Q313.1 508.1 312.9 508.3Q312.7 508.5 312.7 508.9L312.7 508.9Q312.7 509.1 312.8 509.3Q312.9 509.5 313 509.6Q313.2 509.7 313.3 509.7ZM313.5 513.1L313.5 513.1Q313.8 513.1 314 513.1Q314.3 513 314.4 512.8Q314.5 512.7 314.5 512.6L314.5 512.6Q314.5 512.3 314.4 512.3Q314.2 512.2 313.8 512.2L313.8 512.2L313.3 512.2Q313.1 512.2 312.9 512.2Q312.8 512.2 312.7 512.1L312.7 512.1Q312.5 512.2 312.5 512.3Q312.4 512.5 312.4 512.6L312.4 512.6Q312.4 512.9 312.7 513Q313 513.1 313.5 513.1ZM318 512L316.6 512L316.6 505.3L318 505.3L318 507L318 507.8Q318.2 507.6 318.6 507.4Q318.9 507.2 319.4 507.2L319.4 507.2Q320.2 507.2 320.5 507.7Q320.9 508.2 320.9 509.1L320.9 509.1L320.9 512L319.5 512L319.5 509.3Q319.5 508.7 319.4 508.6Q319.2 508.4 318.9 508.4L318.9 508.4Q318.6 508.4 318.5 508.5Q318.3 508.6 318 508.8L318 508.8L318 512ZM323.9 512.1L323.9 512.1Q323 512.1 322.6 511.6Q322.2 511.1 322.2 510.3L322.2 510.3L322.2 508.4L321.6 508.4L321.6 507.3L322.3 507.3L322.5 505.8L323.6 505.8L323.6 507.3L324.8 507.3L324.8 508.4L323.6 508.4L323.6 510.3Q323.6 510.7 323.8 510.8Q324 511 324.3 511L324.3 511Q324.4 511 324.5 511Q324.6 511 324.7 510.9L324.7 510.9L324.9 511.9Q324.8 512 324.5 512Q324.2 512.1 323.9 512.1Z';
 
   // ------------------------------------------------------------------ tiny affine math (SVG matrix order a b c d e f)
   function mul(m, n) {
@@ -1154,8 +1231,8 @@
     var torso = LB.g(leanFront);
     var tee = F.cel(torso, { flat: true, d: 'M289 444L326 444L340 676L294 676Z', fill: P.tee, shadow: P.teeShadow,
       shadowD: 'M289 444L305 444C302 520 304 600 306 676L294 676Z', lw: LW.inner });
-    LB.el('text', { x: 314, y: 512, 'text-anchor': 'middle', 'font-family': "'Source Sans 3', sans-serif", 'font-weight': 700, 'font-size': 9.5,
-      fill: P.teePrint, transform: 'rotate(2 314 512)', text: 'night' }, torso);
+    // tee print 'night': baked glyph outlines (tools/bake-text.cjs, key night), so the camera zoom never re-lays out text
+    LB.path(torso, NIGHT_D, { fill: P.teePrint, transform: 'rotate(2 314 512)' });
     var jL = F.cel(torso, { flat: true, d: F.crD([[296, 444], [270, 450], [252, 474], [247, 560], [249, 676], [276, 680], [305, 677], [302, 560], [300, 470]], true),
       fill: P.jacket, shadow: P.jacketShadow, shadowD: 'M288 470C292 540 294 610 296 690L320 690L320 440L300 440Z', lw: LW.inner });
     var jR = F.cel(torso, { flat: true, d: F.crD([[318, 444], [346, 448], [362, 470], [368, 560], [370, 676], [350, 680], [334, 677], [332, 560], [328, 470]], true),
@@ -1175,10 +1252,12 @@
     var LS = [354, 468], LE = [360, 562], LW2 = [364, 650];
     F.limb(lArm, { fill: P.jacket, shadow: P.jacketShadow, lw: LW.inner }).set(LS, LE, LW2, 27, 24, 21);
     LB.path(lArm, 'M353 642L375 644M359 566C361 572 365 574 370 574M352 610C356 613 361 613 366 611', ol(1.0, P.jacketSeam));
-    var lhD = 'M355 650C351 660 351 675 355 685C358 693 368 696 373 689C376 683 377 668 374 651Z';
-    F.cel(lArm, { flat: true, d: lhD, fill: P.skin, shadow: P.skinShadow, shadowD: 'M368 650C373 664 373 680 366 696L383 696L383 650Z', lw: LW.inner });
-    LB.path(lArm, 'M355.5 661C353.5 668 354 675 357.5 680M362 682C364 685 367 686 370 684M363 687.5C365 690 368 690.6 371 689', ol(0.85, S.lineSoft));
-    LB.path(lArm, 'M361.6 681.6C364 684.4 368 684.6 371.2 682.4', ol(1.6, P.ring, { 'data-sil': 'hide' }));
+    // relaxed hanging fist (about 34 tall): thumb crease on the lit side, curled finger separations, the ring on top
+    var lhD = 'M355 650C351 659 350.4 670 353.4 678.4C356 686 366.4 689 372.2 683.4C376.2 678.4 377 666 374 651Z';
+    F.cel(lArm, { flat: true, d: lhD, fill: P.skin, shadow: P.skinShadow, shadowD: 'M368 650C373 662 373.4 676 367 690L383 690L383 650Z', lw: LW.inner });
+    LB.path(lArm, 'M355.4 659C353.4 665.4 353.8 671.4 357 675.6M358.6 669.4C361.6 671 365.6 671.2 369.4 669.6' +
+      'M358.2 675.4C361.2 677.4 365.6 677.6 369.8 675.8M359.6 681C362.4 683 366 683.2 369.6 681.6', ol(0.85, S.lineSoft));
+    LB.path(lArm, 'M358.6 672.2C361.6 674.2 365.6 674.4 369.6 672.6', ol(1.6, P.ring, { 'data-sil': 'hide' }));
 
     // ---- cape front panel, screen-right (over the character's left shoulder)
     var RT = [[313, 468], [332, 504], [358, 548], [384, 600], [398, 660], [405, 730], [411, 800], [417, 870], [423, 936]];
@@ -1223,6 +1302,9 @@
 
     // ---- ermine collar (back part stands up behind the neck)
     var collarBack = LB.g(leanFront);
+    // the shadowed inside of the standing collar, behind the neck: closes the two gaps beside the neck (they showed the room,
+    // and read as a donut hole in the impact silhouette)
+    LB.path(collarBack, F.crD([[266, 458], [268, 430], [282, 410], [305, 403], [328, 407], [342, 428], [346, 458]], true), fl(P.liningShadow));
     ermine(collarBack, [[260, 456], [261, 428], [276, 406], [305, 397], [334, 401], [349, 422], [352, 454]], 25, 37, { side: 1, step: 6.6, taper: [0.14, 0.14] });
 
     // ================================================================ HEAD
@@ -1239,7 +1321,9 @@
     var face = F.create(feat, {
       eyeSpacing: 38, eyeW: 21.5, eyeH: 11, irisColor: P.iris, irisDark: P.irisDark, irisLight: P.irisLight, browColor: P.brow,
       browY: -12.5, mouthY: 35, mouthW: 15, mustache: true, lipColor: P.lip, skin: P.skin, skinShadow: P.skinShadow,
-      sweatAt: { x: 48, y: -24 }, cheekY: 15, noseY: 19.5, faceClip: hd.clipId,
+      // the seam sweat drop is the King's only tell that he remembers: big enough to read on a phone (about 7 x 13 px at
+      // 360 px in the wide shot), hanging at the screen-right temple just under the crown band
+      sweatAt: { x: 50, y: -14 }, sweatScale: 1.8, cheekY: 15, noseY: 19.5, faceClip: hd.clipId,
     });
     // mustache: brown chevron, thick in the middle, tips drooping a little past the mouth corners
     var mus = LB.g(feat, { transform: 'translate(0 28) scale(1.13 1.1) translate(0 -28)' });
@@ -1328,10 +1412,10 @@
 
     // ================================================================ SCEPTER (front) + fist
     var scFront = LB.g(leanFront);
-    // smear ghosts: one path each (shaft + knob in the knob gold reads as a motion blur of the whole prop)
-    var ghosts = [0.4, 0.2].map(function (op) {
-      return LB.path(scFront, 'M-3.6 -214L-3.6 ' + TIP + 'L3.6 ' + TIP + 'L3.6 -214Z M-13 ' + (-KNOB) + 'a13 13 0 1 0 26 0a13 13 0 1 0 -26 0Z',
-        fl('#3A2E1C', { opacity: op, 'data-sil': 'hide' }));
+    // smear ghosts: one path each (a wide shaft + knob in pale gold, so the motion reads over the dark night window)
+    var ghosts = [0.55, 0.3].map(function (op) {
+      return LB.path(scFront, 'M-5 -214L-5 ' + TIP + 'L5 ' + TIP + 'L5 -214Z M-13 ' + (-KNOB) + 'a13 13 0 1 0 26 0a13 13 0 1 0 -26 0Z',
+        fl('#FFE7A0', { opacity: op, 'data-sil': 'hide' }));
     });
     var scepterF = buildScepter(scFront, true);
     var fist = LB.g(scFront);
@@ -1364,13 +1448,13 @@
       var p = { tilt: 8, pitch: -0.35, lean: 0, grip: GRIP_PHOTO, phi: PHI_PHOTO, front: true };
       var name = s.pose || 'photo';
       if (name === 'raise') {
-        var k = clamp(+s.raise || 0, 0, 1);
+        var k = clamp(num(s.raise, 0), 0, 1);
         p.grip = qb(GRIP_PHOTO, [352, 520], GRIP_RAISE, k);
         p.phi = lerp(PHI_PHOTO, PHI_RAISE, k) - 18 * Math.pow(Math.sin(Math.PI * k), 1.2);
         p.tilt = lerp(8, 2, LB.ease.inOutSine(k));
         p.pitch = lerp(-0.35, 0.7, LB.ease.inOutSine(k));
       } else if (name === 'bonk') {
-        var dk = clamp(+s.drop || 0, 0, 1);
+        var dk = clamp(num(s.drop, 0), 0, 1);
         p.grip = [lerp(GRIP_RAISE[0], GRIP_BONK[0], dk), lerp(GRIP_RAISE[1], GRIP_BONK[1], dk)];
         p.phi = lerp(PHI_RAISE, PHI_BONK, dk);
         p.tilt = 2; p.pitch = 0.7;
@@ -1389,12 +1473,12 @@
       vis(root, 'hidden', !hidden);
       if (hidden) { last.state = s; return; }
       var p = poseOf(s);
-      var x = s.x != null ? +s.x : FEET[0], y = s.y != null ? +s.y : FEET[1];
-      var sc = s.scale != null ? +s.scale : 1, sx = s.sx != null ? +s.sx : 1, sy = s.sy != null ? +s.sy : 1;
-      var lean = s.lean != null ? +s.lean : p.lean;
-      var tilt = s.headTilt != null ? +s.headTilt : p.tilt;
-      var bob = (+s.bob || 0) - (+s.breathe || 0) * 1.6 * (0.5 + 0.5 * LB.loopSin(s.t || 0, 3));
-      M.root = chain(T(x, y), R(+s.rot || 0), Sc(sc * sx, sc * sy), T(-FEET[0], -FEET[1]));
+      var x = num(s.x, FEET[0]), y = num(s.y, FEET[1]);
+      var sc = num(s.scale, 1), sx = num(s.sx, 1), sy = num(s.sy, 1);
+      var lean = num(s.lean, p.lean);
+      var tilt = num(s.headTilt, p.tilt);
+      var bob = num(s.bob, 0) - num(s.breathe, 0) * 1.6 * (0.5 + 0.5 * LB.loopSin(s.t || 0, 3));
+      M.root = chain(T(x, y), R(num(s.rot, 0)), Sc(sc * sx, sc * sy), T(-FEET[0], -FEET[1]));
       M.lean = chain(T(0, bob), T(HIP[0], HIP[1]), R(lean), T(-HIP[0], -HIP[1]));
       M.head = chain(T(NECK[0], NECK[1]), R(tilt), T(0, FACE_UP));
       setT(root, 'root', M.root);
@@ -1442,7 +1526,7 @@
         setT(fist, 'fist', M.scep);
         setT(scepterF.knobShade, 'ksh', chain(T(0, 0), R(-th)));
         setT(scepterF.knobHi, 'khi', R(-th));
-        var sm = clamp(+s.smear || 0, 0, 1);
+        var sm = clamp(num(s.smear, 0), 0, 1);
         ghosts.forEach(function (g, i) {
           var on = sm > 0.01;
           vis(g, 'gh' + i, on);
@@ -1459,6 +1543,9 @@
       face.update(s);
       var sil = (+s.silhouette || 0) > 0.5;
       LB.silhouette(root, sil, s.silhouetteColor || '#000');
+      // the weapon stays readable in the impact frame: the scepter (not the fist) is one flat gold shape across the black
+      // figures (the custom property cascades over the root's color)
+      LB.silhouette(scepterF.g, sil, P.gold);
       vis(drape, 'drape', !sil);
       last.p = p; last.state = s;
     }
@@ -1473,7 +1560,7 @@
         case 'knob': return ap(chain(base, M.scep), [0, -KNOB]);
         case 'crown': return ap(chain(headM, M.crown), [0, -30]);
         case 'mouth': return ap(headM, [0, 36 + pitchY]);
-        case 'temple': return ap(headM, [44, -22 + pitchY]);
+        case 'temple': return ap(headM, [50, -14 + pitchY]);
         default: return ap(headM, [0, -6]);
       }
     }
@@ -1491,6 +1578,8 @@
 (function () {
   'use strict';
   var LB = window.LB;
+  // T13: numeric state fields go through num(): anything that is not a finite number falls back to the default
+  function num(v, d) { return typeof v === 'number' && isFinite(v) ? v : d; }
 
   // ------------------------------------------------------------------ tiny affine math (SVG matrix order a b c d e f)
   function mul(m, n) {
@@ -1644,8 +1733,10 @@
     var hd = F.head(headG, { w: 92, top: -54, chin: 55, cheekY: 4, jawY: 32, jaw: 0.7, chinW: 28, earY: 3, earH: 25, earW: 9.5,
       neckW: 46, neckTop: 26, neckBot: 70, skin: P.skin, skinShadow: P.skinShadow });
     LB.show(hd.neck, false);
-    // temple shade under the swept-up hair (inside the face clip)
-    LB.path(hd.face.inner, 'M-60 -60L60 -60L60 -40C46 -41 38 -40 30 -38C20 -40.5 10 -41.5 0 -40.5C-12 -41.5 -24 -41 -34 -37C-44 -37 -52 -38 -60 -38Z', fl(P.skinShadow));
+    // temple shade under the swept-up hair (inside the face clip). The hairline sits high (about y -47 at the centre), as in
+    // the photo, so more forehead shows and the hair no longer frames the face like a helmet.
+    LB.path(hd.face.inner, 'M-60 -60L60 -60L60 -30L44 -30C42.4 -32 40.6 -34 37.5 -37C31 -42.5 21 -44.7 11 -44.9C7 -45.9 3 -45.1 -1 -45.5' +
+      'C-8 -45.9 -15 -45.3 -22 -44.5C-30 -43.3 -37.6 -38.9 -41.2 -32.5L-44 -30L-60 -30Z', fl(P.skinShadow));
 
     var feat = LB.g(headG);
     var face = F.create(feat, {
@@ -1670,7 +1761,8 @@
     };
     var clearG = LB.g(glassesG);
     LB.path(clearG, lensBoth, fl(C.lensTint, { opacity: 0.2 }));
-    LB.path(clearG, streak(-1) + streak(1), fl('#FFFFFF', { opacity: 0.6, 'clip-path': lcp, 'data-sil': 'hide' }));
+    // the glare stays soft (0.32) so an iris sliding to the lens's outer half still reads through it
+    LB.path(clearG, streak(-1) + streak(1), fl('#FFFFFF', { opacity: 0.32, 'clip-path': lcp, 'data-sil': 'hide' }));
     LB.path(clearG, lensBoth, ol(1.0, C.lensEdge));
     LB.path(clearG, 'M10.6 10.2L28.4 10.2M-10.6 10.2L-28.4 10.2', ol(1.35, C.lensEdge));
     var opaqueG = LB.g(glassesG);
@@ -1691,13 +1783,14 @@
     };
     GAPS.o = GAPS.whistle = GAPS.closed;
     var beard = (function () {
-      var OE = [[-48.2, -1], [-48.6, 12], [-46.4, 24], [-42, 34], [-34.5, 44], [-24.5, 52.5], [-12.5, 58.2], [0, 60.2], [12.5, 58.2], [24.5, 52.5], [34.5, 44], [42, 34], [46.4, 24], [48.6, 12], [48.2, -1]];
+      // short and close-trimmed: the hem hugs the jaw about 2.5 below the chin (photo), with a light jag
+      var OE = [[-48.2, -1], [-48.6, 12], [-46.4, 24], [-42, 34], [-34.5, 43.4], [-24.5, 51.2], [-12.5, 55.8], [0, 57.5], [12.5, 55.8], [24.5, 51.2], [34.5, 43.4], [42, 34], [46.4, 24], [48.6, 12], [48.2, -1]];
       // jagged lower edge: every other sample below y 38 pushed out a little
       var Cs = F.crSample(OE, 4), out = [];
       Cs.forEach(function (p, i) {
         var a = Cs[Math.max(0, i - 1)], b = Cs[Math.min(Cs.length - 1, i + 1)];
         var nx = (b[1] - a[1]), ny = -(b[0] - a[0]), l = Math.hypot(nx, ny) || 1;
-        var k = p[1] > 38 && i % 2 ? 2.1 : 0;
+        var k = p[1] > 38 && i % 2 ? 1.4 : 0;
         out.push([p[0] + nx / l * k, p[1] + ny / l * k]);
       });
       // cheek line (right to left) with stubble notches, moustache top under the nose
@@ -1733,18 +1826,18 @@
     var hairD = 'M-48 7L-48.6 -14C-49.4 -24 -49 -36 -44.5 -45C-40.4 -52.4 -33.4 -56.6 -26 -58.2Q-22 -61.6 -16.5 -63.2Q-15 -60.6 -12 -59.6' +
       'Q-6 -64.6 1 -65.6Q2.6 -62.2 5 -60.6Q11 -64.2 18.4 -63.6Q19.2 -60.6 22 -59.2Q29 -59.2 35.6 -56.4Q35.4 -54.4 37.4 -53.4' +
       'C43.4 -49 48 -40 48.6 -30C49 -24 48.8 -18 48.6 -14L48 7L43.2 7L43.6 -14' +
-      'C43.6 -22 41.4 -30 36 -35C29 -40.6 20 -41.6 11 -41.2C7 -42.6 3 -41 -1 -40.6C-8 -41.6 -15 -41.6 -22 -41C-30 -39.6 -37.6 -36 -41.4 -30C-43.4 -26 -43.6 -20 -43.6 -14L-43.2 7Z';
+      'C43.6 -24 42 -33 37.5 -38.5C31 -44 21 -46.2 11 -46.4C7 -47.4 3 -46.6 -1 -47C-8 -47.4 -15 -46.8 -22 -46C-30 -44.8 -37.6 -40.4 -41.2 -34C-43.4 -29 -43.6 -21 -43.6 -14L-43.2 7Z';
     var hc = F.cel(hairFront, { flat: true, d: hairD, fill: P.hair, shadow: P.hairShadow,
       shadowD: 'M12 -41C24 -44 34 -46 40 -52L60 -52L60 10L44 10C45 -10 42 -28 30 -37C24 -40 18 -41 12 -41Z M-50 -4L-42 -4L-42 10L-50 10Z',
       lw: LW.inner });
     // swept-up lock separations (tapered, hair shadow) and a broken anime shine band
     LB.path(hairFront, [
-      [[[-36, -37], [-33, -46], [-27, -53], [-19, -59.5]], 1.7],
-      [[[-22, -41.2], [-17, -50], [-10, -57], [-1, -62.5]], 1.9],
-      [[[-5, -40.8], [1, -49], [8, -56], [16, -61]], 1.9],
-      [[[11, -41.4], [18, -48.5], [25, -53.5], [33, -56.4]], 1.7],
-      [[[27, -39], [33, -44], [40, -48.5]], 1.4],
-      [[[-43, -27], [-42, -36], [-38, -44]], 1.3],
+      [[[-35, -41], [-32, -48.5], [-27, -54], [-19, -59.5]], 1.7],
+      [[[-22, -45.8], [-17, -52.5], [-10, -58], [-1, -62.5]], 1.9],
+      [[[-5, -46.8], [1, -52.5], [8, -57.5], [16, -61]], 1.9],
+      [[[11, -46.2], [18, -51], [25, -54.5], [33, -56.4]], 1.7],
+      [[[28, -43], [33, -46], [40, -49.5]], 1.4],
+      [[[-42.6, -30], [-41.6, -38], [-38, -45]], 1.3],
     ].map(function (l) { return F.taperD(l[0], [0.2, l[1], l[1] * 0.8, 0]); }).join(''), fl(P.hairShadow));
     LB.path(hairFront, F.taperD([[-30, -47.5], [-24, -51.5], [-18, -54]], [0, 2.6, 0]) + F.taperD([[-13, -53.5], [-6, -56.5], [1, -58]], [0, 2.8, 0]) +
       F.taperD([[5, -55.5], [11, -57.6], [16, -58.4]], [0, 2.2, 0]), fl(P.hairShine, { 'data-sil': 'hide' }));
@@ -1887,14 +1980,14 @@
       var hidden = !!s.hidden;
       vis(root, 'hidden', !hidden);
       if (hidden) { last.state = s; return; }
-      var x = s.x != null ? +s.x : FEET[0], y = s.y != null ? +s.y : FEET[1];
-      var k = s.scale != null ? +s.scale : 1, sx = s.sx != null ? +s.sx : 1, sy = s.sy != null ? +s.sy : 1;
-      var lean = s.lean != null ? +s.lean : 0;
-      var tilt = s.headTilt != null ? +s.headTilt : TILT0;
-      var bob = (+s.bob || 0) - (+s.breathe || 0) * 1.6 * (0.5 + 0.5 * LB.loopSin(s.t || 0, 3));
-      var squash = s.headSquash != null ? clamp(+s.headSquash, 0.5, 1.5) : 1;
-      var st = clamp(+s.steeple || 0, 0, 1);
-      M.root = chain(T(x, y), R(+s.rot || 0), Sc(k * sx, k * sy), T(-FEET[0], -FEET[1]));
+      var x = num(s.x, FEET[0]), y = num(s.y, FEET[1]);
+      var k = num(s.scale, 1), sx = num(s.sx, 1), sy = num(s.sy, 1);
+      var lean = num(s.lean, 0);
+      var tilt = num(s.headTilt, TILT0);
+      var bob = num(s.bob, 0) - num(s.breathe, 0) * 1.6 * (0.5 + 0.5 * LB.loopSin(s.t || 0, 3));
+      var squash = clamp(num(s.headSquash, 1), 0.5, 1.5);
+      var st = clamp(num(s.steeple, 0), 0, 1);
+      M.root = chain(T(x, y), R(num(s.rot, 0)), Sc(k * sx, k * sy), T(-FEET[0], -FEET[1]));
       M.lean = chain(T(0, bob), T(HIP[0], HIP[1]), R(lean), T(-HIP[0], -HIP[1]));
       M.head = chain(T(NECK[0], NECK[1]), R(tilt), Sc(1, squash), T(0, FACE_UP));
       setT(root, 'root', M.root);
@@ -1947,11 +2040,11 @@
       vis(opaqueG, 'gopaque', opaque);
       vis(face.layers.eyes, 'eyesv', !opaque);
       var turn = clamp(+s.headTurn || 0, -1, 1);
-      M.glasses = chain(T(turn * 40 * 0.28, -3), R(+s.glassesTilt || 0), T(0, 3));
+      M.glasses = chain(T(turn * 40 * 0.28, -3), R(num(s.glassesTilt, 0)), T(0, 3));
       setT(glassesG, 'gl', M.glasses);
 
       // bump + stars
-      var bump = clamp(+s.bump || 0, 0, 1.3);
+      var bump = clamp(num(s.bump, 0), 0, 1.3);
       vis(bumpG, 'bumpv', bump > 0.01);
       if (bump > 0.01) setT(bumpG, 'bump', chain(T(0, BUMP_BASE), Sc(bump, bump)));
       var sk = clamp(+s.stars || 0, 0, 1);
@@ -2006,6 +2099,8 @@
 (function () {
   'use strict';
   var LB = window.LB;
+  // T13: numeric state fields go through num(): anything that is not a finite number falls back to the default
+  function num(v, d) { return typeof v === 'number' && isFinite(v) ? v : d; }
 
   // ------------------------------------------------------------------ tiny affine math (SVG matrix order a b c d e f)
   function mul(m, n) {
@@ -2031,13 +2126,17 @@
   var SHOULDER = [664, 378];    // character's right shoulder (screen-left, the casting arm)
   var MITRE_BASE = -55;         // mitre band top at the sides (face-local): mitreStretch scales everything above it
   var MITRE_TIP = -188;
-  var WRIST0 = [604, 618], WRIST_C = [572, 452], WRIST1 = [594, 361]; // casting arm: hidden at the side -> out at shoulder height
+  // casting arm: hidden at the side -> out at shoulder height. The in-between (WRIST_C) passes beside the cape edge, clear of
+  // the Friar's robe (drawn in front of the Bishop), so the cast has a visible in-between drawing; at full cast the palm sits
+  // near (603,366) with the fingertips about 25 units short of the Friar's ear: a ranged game cast, not a touch.
+  var WRIST0 = [604, 618], WRIST_C = [626, 430], WRIST1 = [618, 368];
   var HAND_S = 1.25;            // the casting hand reads bigger (it reaches toward the camera-left)
   var MUS_Y = 31;               // mustache squash pivot (face-local)
 
   // cape front panel, screen-left half: photo pose (L0) and cast pose (L1, the arm lifts it into a wing). Same point count.
+  // L0's screen-left side hangs straight past the hip to a squarer hem corner (as in the photo), not tucked in like a balloon.
   var L0 = [[716, 351], [700, 349], [679, 352], [653, 362], [629, 376], [611, 399], [600, 440], [594, 500], [590, 570], [588, 640],
-    [592, 700], [600, 743], [618, 758], [638, 773], [656, 771], [676, 784], [700, 790], [716, 793], [719, 650], [719, 500]];
+    [588, 700], [590, 745], [596, 775], [612, 791], [638, 795], [663, 792], [690, 797], [716, 797], [719, 650], [719, 500]];
   var L1 = [[716, 351], [700, 349], [680, 351], [659, 352], [639, 350], [621, 349], [607, 348], [597, 354], [599, 372], [604, 440],
     [608, 520], [622, 610], [636, 690], [650, 740], [664, 762], [682, 780], [702, 789], [716, 793], [719, 650], [719, 500]];
   // satin fold shadows and highlight streaks on that panel (rest / cast), same point counts
@@ -2072,7 +2171,7 @@
     function taper(pts, w) { return F.taperD(pts, [0, w * 0.8, w, w * 0.6, 0], 5); }
     function streak(pts, w) { return F.taperD(pts, [0, w, w * 0.7, 0], 5); }
     function closedD(pts) { return F.crD(pts, true); }
-    // capsule A->B with round caps that bulge OUTWARD (sweep 1). The kit's tubeD(..., caps) bends its caps inward.
+    // capsule A->B with round caps that bulge OUTWARD (sweep 1); same shape as the kit's tubeD(..., caps).
     function capsule(A, B, wA, wB) {
       var dx = B[0] - A[0], dy = B[1] - A[1], d = Math.hypot(dx, dy) || 1, nx = -dy / d, ny = dx / d, rA = wA / 2, rB = wB / 2;
       return 'M' + pt([A[0] - nx * rA, A[1] - ny * rA]) + 'L' + pt([B[0] - nx * rB, B[1] - ny * rB]) +
@@ -2110,8 +2209,9 @@
       function sh(v) { return SOLE_H + 1 + ARCH * Math.sqrt(Math.max(0, 1 - Math.pow(v / wb, 2))); }
       function sFront(v) { return Pp(u1 + 2.6 * (1 - Math.pow(v / wb, 2)), v, sh(v)); }
       var frontC = sFront(0);
-      // sock leg: thick heathered wool from under the pants cuff into the slide (its end hides under the strap)
-      var Tp = o.sockTop, A = [frontC[0], frontC[1] - 15.5];
+      // sock leg: thick heathered wool from under the pants cuff into the slide. Its end sits inside the strap's footprint
+      // (projected with the foot's turn), so the strap drawn later covers the round end on a turned foot as well.
+      var Tp = o.sockTop, A = Pp(lerp(u0, u1, 0.45), 0, SOLE_H + 10);
       var dx = A[0] - Tp[0], dy = A[1] - Tp[1], dl = Math.hypot(dx, dy), nx = -dy / dl, ny = dx / dl;
       var legD = capsule(Tp, A, 33, 35);
       LB.path(g, legD, fl(P.sock));
@@ -2126,6 +2226,7 @@
         wr += 'M' + pt(onLeg(al, -0.95)) + 'Q' + pt(onLeg(al + 0.1, -0.2)) + ' ' + pt(onLeg(al, 0.35)) + 'Q' + pt(onLeg(al + 0.07, 0.75)) + ' ' + pt(onLeg(al + 0.03, 0.96));
       });
       LB.path(g, wr, ol(0.95, P.sockShadow));
+      LB.path(g, legD, ol(LW.inner));   // inked before the toes, which cover the leg's round end below the strap
       var rnd = LB.rng(o.seed), spL = '', spD = '';
       for (i = 0; i < 22; i++) {
         var p0 = onLeg(0.06 + rnd() * 0.9, rnd() * 1.7 - 0.85), rr = 0.45 + rnd() * 0.3;
@@ -2169,7 +2270,6 @@
       }
       LB.path(g, spL, fl(HEATHER_L));
       LB.path(g, spD, fl(HEATHER_D));
-      LB.path(g, legD, ol(LW.inner));
       LB.path(g, toeD, ol(LW.inner));
       // strap
       function strapD(vA, vB) {
@@ -2369,26 +2469,45 @@
       for (var y = my - 26; y > tip + 26; y -= 23) lozenge(0, y, 7.6 * clamp((y - tip) / 54, 0.62, 1));
       return o;
     }
-    function applyMitre(k) {
+    // All mitre path data for one stretch value. The director only ever sends a handful of stretch values (one per growth
+    // drawing), so the strings are memoized: after the first loop a stretch change costs only the setAttribute calls.
+    var mitreCache = {}, mitreCacheN = 0;
+    function mitreStrings(k) {
+      var key = k.toFixed(4), c = mitreCache[key];
+      if (c) return c;
       var fr = mp(FR, k), flt = mp(FLft, k), br = mp(BR, k), brl = mp(BRL, k);
-      var frontD = 'M' + pt(flt[0]) + F.crSeg(flt, false) + F.crSeg(fr.slice().reverse(), false) + 'Q0 -47.5 -52.5 -55Z';
-      var backD = 'M' + pt(br[0]) + F.crSeg(br, false) + 'L' + pt(brl[0]) + F.crSeg(brl, false) + 'L0 -58Z';
       var shf = mp(SHF, k);
-      var shD = 'M' + pt(shf[0]) + F.crSeg(shf, false) + 'L80 ' + n2(Ym(-220, k)) + 'L80 -46Z';
-      backC.setD(backD);
-      backTrim.setAttribute('d', F.ribbonD(br, 13));
-      frontC.setD(frontD, shD);
-      // edge trims: a band along both front edges (outer half clipped away by the panel)
-      trimP.setAttribute('d', F.ribbonD(fr, 15) + F.ribbonD(flt, 15));
-      trimSh.setAttribute('d', F.ribbonD(fr, 15, -1, 0));
-      trimLine.setAttribute('d', F.ribbonD(fr, 13, -1, -1).replace(/Z$/, '') + F.ribbonD(flt, 13, 1, 1).replace(/Z$/, ''));
       // central orphrey, narrowing toward the tip
       var oc = mp([[0, -48], [0, -100], [0, -150], [0, -198]], k);
       var ow = function (t) { return 24 - 8 * t; };
-      orph.setAttribute('d', F.ribbonD(oc, ow));
-      orphSh.setAttribute('d', F.ribbonD(oc, ow, 0.32, 1));
-      orphLine.setAttribute('d', F.ribbonD(oc, ow));
-      var o = mitreOrn(k);
+      var orphD = F.ribbonD(oc, ow);
+      c = {
+        frontD: 'M' + pt(flt[0]) + F.crSeg(flt, false) + F.crSeg(fr.slice().reverse(), false) + 'Q0 -47.5 -52.5 -55Z',
+        backD: 'M' + pt(br[0]) + F.crSeg(br, false) + 'L' + pt(brl[0]) + F.crSeg(brl, false) + 'L0 -58Z',
+        shD: 'M' + pt(shf[0]) + F.crSeg(shf, false) + 'L80 ' + n2(Ym(-220, k)) + 'L80 -46Z',
+        backTrim: F.ribbonD(br, 13),
+        // edge trims: a band along both front edges (outer half clipped away by the panel)
+        trim: F.ribbonD(fr, 15) + F.ribbonD(flt, 15),
+        trimSh: F.ribbonD(fr, 15, -1, 0),
+        trimLine: F.ribbonD(fr, 13, -1, -1).replace(/Z$/, '') + F.ribbonD(flt, 13, 1, 1).replace(/Z$/, ''),
+        orph: orphD, orphSh: F.ribbonD(oc, ow, 0.32, 1),
+        orn: mitreOrn(k),
+      };
+      if (mitreCacheN > 24) { mitreCache = {}; mitreCacheN = 0; }   // bounded, in case a caller sweeps the value smoothly
+      mitreCache[key] = c; mitreCacheN++;
+      return c;
+    }
+    function applyMitre(k) {
+      var c = mitreStrings(k), o = c.orn;
+      backC.setD(c.backD);
+      backTrim.setAttribute('d', c.backTrim);
+      frontC.setD(c.frontD, c.shD);
+      trimP.setAttribute('d', c.trim);
+      trimSh.setAttribute('d', c.trimSh);
+      trimLine.setAttribute('d', c.trimLine);
+      orph.setAttribute('d', c.orph);
+      orphSh.setAttribute('d', c.orphSh);
+      orphLine.setAttribute('d', c.orph);
       ornGold.setAttribute('d', o.gold); ornCream.setAttribute('d', o.cream); ornPetal.setAttribute('d', o.petal);
       ornDot.setAttribute('d', o.dot); ornDet.setAttribute('d', o.det); ornInk.setAttribute('d', o.ink); ornHi.setAttribute('d', o.hi);
     }
@@ -2549,13 +2668,13 @@
       vis(root, 'hidden', !hidden);
       if (hidden) { last.state = s; return; }
       var p = poseOf(s);
-      var x = s.x != null ? +s.x : FEET[0], y = s.y != null ? +s.y : FEET[1];
-      var sc = s.scale != null ? +s.scale : 1, sx = s.sx != null ? +s.sx : 1, sy = s.sy != null ? +s.sy : 1;
-      var ck = clamp(s.cast != null ? +s.cast : p.cast, 0, 1);
-      var lean = s.lean != null ? +s.lean : p.lean - 2 * ck;
-      var tilt = s.headTilt != null ? +s.headTilt : p.tilt;
-      var bob = (+s.bob || 0) - (+s.breathe || 0) * 1.6 * (0.5 + 0.5 * LB.loopSin(s.t || 0, 3));
-      M.root = chain(T(x, y), R(+s.rot || 0), Sc(sc * sx, sc * sy), T(-FEET[0], -FEET[1]));
+      var x = num(s.x, FEET[0]), y = num(s.y, FEET[1]);
+      var sc = num(s.scale, 1), sx = num(s.sx, 1), sy = num(s.sy, 1);
+      var ck = clamp(num(s.cast, p.cast), 0, 1);
+      var lean = num(s.lean, p.lean - 2 * ck);
+      var tilt = num(s.headTilt, p.tilt);
+      var bob = num(s.bob, 0) - num(s.breathe, 0) * 1.6 * (0.5 + 0.5 * LB.loopSin(s.t || 0, 3));
+      M.root = chain(T(x, y), R(num(s.rot, 0)), Sc(sc * sx, sc * sy), T(-FEET[0], -FEET[1]));
       M.lean = chain(T(0, bob), T(HIP[0], HIP[1]), R(lean), T(-HIP[0], -HIP[1]));
       M.head = chain(T(NECK[0], NECK[1]), R(tilt), T(0, FACE_UP));
       setT(root, 'root', M.root);
@@ -2564,7 +2683,7 @@
       setT(feat, 'feat', T(0, -p.pitch * 2.2));
 
       // mitre stretch (rebuilt only when it changes)
-      var mk = clamp(s.mitreStretch != null ? +s.mitreStretch : 1, 0.5, 2);
+      var mk = clamp(num(s.mitreStretch, 1), 0.5, 2);
       if (last.mk !== mk) { last.mk = mk; applyMitre(mk); }
 
       // mustache: squash-and-stretch, the two halves flick their tips up
@@ -2605,7 +2724,7 @@
           setT(sleeve, 'slm', slM); setT(rim, 'rimm', slM);
         }
       }
-      var gk = castOn ? clamp(+s.castGlow || 0, 0, 1) : 0;
+      var gk = castOn ? clamp(num(s.castGlow, 0), 0, 1) : 0;
       var glowOn = gk > 0.01;
       vis(glowG, 'glow', glowOn); vis(ringBack.g, 'rb', glowOn); vis(ringFront.g, 'rf', glowOn);
       if (glowOn) {
@@ -2623,9 +2742,8 @@
         setA(ringBack.dots, 'rbd', 'd', db || 'M0 0');
       }
 
-      // heavy lids: an upward glance would roll the irises out of sight, so the Bishop looks up with 55% of the travel
-      var gy = +s.gazeY || 0;
-      face.update(gy < 0 ? Object.assign({}, s, { gazeY: gy * 0.55 }) : s);
+      // (upward glances under the heavy lids are kept small by the face kit's gazeUp)
+      face.update(s);
       var sil = (+s.silhouette || 0) > 0.5;
       LB.silhouette(root, sil, s.silhouetteColor || '#000');
       last.p = p; last.state = s;
@@ -2710,8 +2828,14 @@
   // fixed world points shared with other modules
   var BB = { x0: 455, y0: 164, x1: 575, y1: 226 }; // billboard outer frame (120 x 62), bottom at y 226
   var ARCH = { x: 590, y: 225 }; // = LB.WORLD.arches
-  var FONT_BB = "'Source Sans 3', 'Source Sans Pro', 'Arial Narrow', Arial, sans-serif";
-  var FONT_BOX = "'Mochiy Pop One', 'M PLUS Rounded 1c', 'Arial Rounded MT Bold', sans-serif";
+  // Signage lettering as glyph outlines, not <text>: world text under the zooming camera made Blink re-lay out every text
+  // node on every zoom change (the zoom beats dropped to 30 fps on a mid phone), and paths need no web font to look right.
+  // Baked by tools/bake-text.cjs from the original text specs (positions as Chrome laid them out with the web fonts).
+  //   billboard : Source Sans 3 700. OVER (465,184) 13.6 ls 0.6 / $1 BILLION centred on 515, y 202.2, 21.6, squeezed to
+  //               104 wide / RECOVERED ending at 565, y 215.2, 13.6 ls 0.3
+  //   peanutDay : Mochiy Pop One 21. Peanut centred (92,834), Day centred (100,860), inside the rotate(-6 94 840) label
+  var GLYPH_BILLBOARD = 'M469.7 184.2L469.7 184.2Q468.5 184.2 467.6 183.6Q466.6 183 466.1 182Q465.6 181 465.6 179.5L465.6 179.5Q465.6 178.1 466.1 177.1Q466.6 176 467.6 175.5Q468.5 175 469.7 175L469.7 175Q470.8 175 471.8 175.5Q472.7 176 473.2 177.1Q473.7 178.1 473.7 179.5L473.7 179.5Q473.7 181 473.2 182Q472.7 183 471.8 183.6Q470.8 184.2 469.7 184.2ZM469.7 182.4L469.7 182.4Q470.3 182.4 470.7 182.1Q471.1 181.7 471.4 181.1Q471.6 180.4 471.6 179.5L471.6 179.5Q471.6 178.6 471.4 178Q471.1 177.4 470.7 177Q470.3 176.7 469.7 176.7L469.7 176.7Q469.1 176.7 468.6 177Q468.2 177.4 467.9 178Q467.7 178.6 467.7 179.5L467.7 179.5Q467.7 180.4 467.9 181.1Q468.2 181.7 468.6 182.1Q469.1 182.4 469.7 182.4ZM479.7 184L477.3 184L474.7 175.1L476.8 175.1L477.8 179.3Q477.9 179.7 478 180.2Q478.1 180.7 478.3 181.2Q478.4 181.6 478.5 182.1L478.5 182.1L478.6 182.1Q478.7 181.6 478.8 181.2Q478.9 180.7 479 180.2Q479.1 179.7 479.3 179.3L479.3 179.3L480.4 175.1L482.4 175.1L479.7 184ZM489.6 184L484 184L484 175.1L489.5 175.1L489.5 176.8L486 176.8L486 178.6L489 178.6L489 180.3L486 180.3L486 182.3L489.6 182.3L489.6 184ZM494 184L492 184L492 175.1L495.2 175.1Q496.2 175.1 496.9 175.4Q497.7 175.6 498.2 176.2Q498.6 176.8 498.6 177.9L498.6 177.9Q498.6 178.9 498.2 179.6Q497.7 180.2 496.9 180.5Q496.2 180.8 495.2 180.8L495.2 180.8L494 180.8L494 184ZM494 176.7L494 179.2L495 179.2Q495.8 179.2 496.3 178.9Q496.7 178.5 496.7 177.9L496.7 177.9Q496.7 177.2 496.3 177Q495.8 176.7 495 176.7L495 176.7L494 176.7ZM499.1 184L496.8 184L494.8 180.3L496.2 179L499.1 184ZM468.3 202.5L468.3 202.5Q467.1 202.5 465.9 202Q464.7 201.6 463.8 200.7L463.8 200.7L465.3 198.7Q466 199.4 466.8 199.6Q467.5 199.9 468.3 199.9L468.3 199.9Q469.2 199.9 469.6 199.5Q470 199.1 470 198.4L470 198.4Q470 197.9 469.6 197.5Q469.2 197.1 468.6 196.7Q467.9 196.4 467.2 196Q466.5 195.6 465.8 195.1Q465.2 194.6 464.8 194Q464.4 193.3 464.4 192.3L464.4 192.3Q464.4 191.1 464.9 190.1Q465.4 189.2 466.4 188.7Q467.4 188.2 468.8 188.2L468.8 188.2Q470.2 188.2 471.2 188.7Q472.2 189.2 472.9 190.1L472.9 190.1L471.3 191.8Q470.8 191.3 470.2 191.1Q469.6 190.8 468.9 190.8L468.9 190.8Q468.2 190.8 467.8 191.1Q467.4 191.5 467.4 192.2L467.4 192.2Q467.4 192.7 467.8 193Q468.2 193.4 468.8 193.7Q469.5 194 470.2 194.4Q470.9 194.8 471.6 195.3Q472.2 195.7 472.6 196.4Q473 197.1 473 198.1L473 198.1Q473 199.4 472.5 200.4Q472 201.3 470.9 201.9Q469.8 202.5 468.3 202.5ZM469.7 204.6L467.6 204.6L467.6 201.2L469.7 201.2L469.7 204.6ZM469.7 189.2L467.6 189.2L467.6 186.1L469.7 186.1L469.7 189.2ZM484.5 202.2L475.8 202.2L475.8 199.6L478.8 199.6L478.8 191.7L476.2 191.7L476.2 189.7Q477.3 189.5 478.1 189.2Q478.9 188.9 479.6 188.5L479.6 188.5L481.9 188.5L481.9 199.6L484.5 199.6L484.5 202.2ZM496.8 202.2L491.6 202.2L491.6 188.1L496.4 188.1Q497.8 188.1 499 188.4Q500.2 188.7 500.8 189.5Q501.5 190.3 501.5 191.6L501.5 191.6Q501.5 192.7 501 193.5Q500.6 194.3 499.7 194.7L499.7 194.7L499.7 194.7Q500.9 195 501.5 195.8Q502.2 196.5 502.2 197.9L502.2 197.9Q502.2 199.4 501.5 200.3Q500.7 201.3 499.5 201.7Q498.3 202.2 496.8 202.2L496.8 202.2ZM494.7 190.6L494.7 193.8L496.2 193.8Q497.4 193.8 497.9 193.3Q498.4 192.8 498.4 192.1L498.4 192.1Q498.4 191.3 497.9 190.9Q497.4 190.6 496.2 190.6L496.2 190.6L494.7 190.6ZM494.7 196.1L494.7 199.7L496.5 199.7Q497.8 199.7 498.5 199.3Q499.1 198.8 499.1 197.8L499.1 197.8Q499.1 196.9 498.5 196.5Q497.8 196.1 496.5 196.1L496.5 196.1L494.7 196.1ZM507.7 202.2L504.6 202.2L504.6 188.1L507.7 188.1L507.7 202.2ZM519.7 202.2L511 202.2L511 188.1L514.2 188.1L514.2 199.5L519.7 199.5L519.7 202.2ZM530.8 202.2L522.1 202.2L522.1 188.1L525.3 188.1L525.3 199.5L530.8 199.5L530.8 202.2ZM536.4 202.2L533.2 202.2L533.2 188.1L536.4 188.1L536.4 202.2ZM545.4 202.5L545.4 202.5Q543.5 202.5 542.1 201.6Q540.6 200.7 539.8 199Q539 197.4 539 195.1L539 195.1Q539 192.8 539.8 191.2Q540.6 189.6 542.1 188.7Q543.5 187.9 545.4 187.9L545.4 187.9Q547.3 187.9 548.7 188.7Q550.2 189.6 550.9 191.2Q551.7 192.8 551.7 195.1L551.7 195.1Q551.7 197.4 550.9 199Q550.2 200.7 548.7 201.6Q547.3 202.5 545.4 202.5ZM545.4 199.7L545.4 199.7Q546.4 199.7 547.1 199.1Q547.7 198.6 548.1 197.5Q548.5 196.5 548.5 195.1L548.5 195.1Q548.5 193.7 548.1 192.7Q547.7 191.7 547.1 191.2Q546.4 190.6 545.4 190.6L545.4 190.6Q544.4 190.6 543.7 191.2Q543 191.7 542.7 192.7Q542.3 193.7 542.3 195.1L542.3 195.1Q542.3 196.5 542.7 197.5Q543 198.6 543.7 199.1Q544.4 199.7 545.4 199.7ZM557.4 202.2L554.4 202.2L554.4 188.1L557.7 188.1L561.3 195.1Q561.6 195.8 562 196.6Q562.3 197.4 562.6 198.2L562.6 198.2L562.7 198.2Q562.6 197.1 562.5 195.7Q562.3 194.4 562.3 193.1L562.3 193.1L562.3 188.1L565.3 188.1L565.3 202.2L562 202.2L558.4 195.3Q558.1 194.6 557.7 193.7Q557.4 192.9 557.1 192.1L557.1 192.1L557 192.1Q557.1 193.3 557.2 194.6Q557.4 196 557.4 197.2L557.4 197.2L557.4 202.2ZM493.6 215.2L491.6 215.2L491.6 206.3L494.8 206.3Q495.7 206.3 496.5 206.6Q497.2 206.8 497.7 207.4Q498.2 208 498.2 209.1L498.2 209.1Q498.2 210.1 497.7 210.8Q497.2 211.4 496.5 211.7Q495.7 212 494.8 212L494.8 212L493.6 212L493.6 215.2ZM493.6 207.9L493.6 210.4L494.6 210.4Q495.4 210.4 495.8 210.1Q496.2 209.7 496.2 209.1L496.2 209.1Q496.2 208.4 495.8 208.2Q495.4 207.9 494.6 207.9L494.6 207.9L493.6 207.9ZM498.6 215.2L496.4 215.2L494.4 211.5L495.8 210.2L498.6 215.2ZM505.9 215.2L500.2 215.2L500.2 206.3L505.7 206.3L505.7 208L502.2 208L502.2 209.8L505.2 209.8L505.2 211.5L502.2 211.5L502.2 213.5L505.9 213.5L505.9 215.2ZM511.7 215.4L511.7 215.4Q510.5 215.4 509.6 214.9Q508.7 214.3 508.1 213.3Q507.5 212.3 507.5 210.8L507.5 210.8Q507.5 209.7 507.8 208.9Q508.2 208 508.8 207.4Q509.4 206.8 510.1 206.5Q510.9 206.2 511.7 206.2L511.7 206.2Q512.6 206.2 513.2 206.5Q513.9 206.8 514.4 207.3L514.4 207.3L513.3 208.5Q513 208.2 512.6 208.1Q512.2 207.9 511.7 207.9L511.7 207.9Q511.2 207.9 510.7 208.3Q510.2 208.6 509.9 209.2Q509.6 209.9 509.6 210.8L509.6 210.8Q509.6 211.7 509.9 212.3Q510.1 213 510.7 213.3Q511.2 213.6 511.8 213.6L511.8 213.6Q512.3 213.6 512.8 213.4Q513.2 213.2 513.5 212.9L513.5 212.9L514.5 214.1Q513.9 214.7 513.2 215Q512.5 215.4 511.7 215.4ZM519.2 215.4L519.2 215.4Q518 215.4 517.1 214.8Q516.2 214.2 515.7 213.2Q515.2 212.2 515.2 210.7L515.2 210.7Q515.2 209.3 515.7 208.3Q516.2 207.2 517.1 206.7Q518 206.2 519.2 206.2L519.2 206.2Q520.4 206.2 521.4 206.7Q522.3 207.2 522.8 208.3Q523.3 209.3 523.3 210.7L523.3 210.7Q523.3 212.2 522.8 213.2Q522.3 214.2 521.4 214.8Q520.4 215.4 519.2 215.4ZM519.2 213.6L519.2 213.6Q519.9 213.6 520.3 213.3Q520.7 212.9 521 212.3Q521.2 211.6 521.2 210.7L521.2 210.7Q521.2 209.8 521 209.2Q520.7 208.6 520.3 208.2Q519.9 207.9 519.2 207.9L519.2 207.9Q518.6 207.9 518.2 208.2Q517.7 208.6 517.5 209.2Q517.3 209.8 517.3 210.7L517.3 210.7Q517.3 211.6 517.5 212.3Q517.7 212.9 518.2 213.3Q518.6 213.6 519.2 213.6ZM529 215.2L526.6 215.2L524 206.3L526.1 206.3L527.1 210.5Q527.2 210.9 527.3 211.4Q527.4 211.9 527.6 212.4Q527.7 212.8 527.8 213.3L527.8 213.3L527.9 213.3Q528 212.8 528.1 212.4Q528.2 211.9 528.3 211.4Q528.5 210.9 528.6 210.5L528.6 210.5L529.7 206.3L531.7 206.3L529 215.2ZM538.7 215.2L533 215.2L533 206.3L538.5 206.3L538.5 208L535 208L535 209.8L538 209.8L538 211.5L535 211.5L535 213.5L538.7 213.5L538.7 215.2ZM542.7 215.2L540.7 215.2L540.7 206.3L543.9 206.3Q544.9 206.3 545.6 206.6Q546.4 206.8 546.9 207.4Q547.3 208 547.3 209.1L547.3 209.1Q547.3 210.1 546.9 210.8Q546.4 211.4 545.6 211.7Q544.9 212 543.9 212L543.9 212L542.7 212L542.7 215.2ZM542.7 207.9L542.7 210.4L543.8 210.4Q544.5 210.4 545 210.1Q545.4 209.7 545.4 209.1L545.4 209.1Q545.4 208.4 545 208.2Q544.5 207.9 543.8 207.9L543.8 207.9L542.7 207.9ZM547.8 215.2L545.5 215.2L543.5 211.5L544.9 210.2L547.8 215.2ZM555 215.2L549.3 215.2L549.3 206.3L554.9 206.3L554.9 208L551.3 208L551.3 209.8L554.4 209.8L554.4 211.5L551.3 211.5L551.3 213.5L555 213.5L555 215.2ZM559.7 215.2L557.1 215.2L557.1 206.3L559.6 206.3Q561 206.3 562 206.8Q563 207.3 563.5 208.2Q564 209.2 564 210.7L564 210.7Q564 212.2 563.5 213.2Q563 214.2 562 214.7Q561 215.2 559.7 215.2L559.7 215.2ZM559.1 208L559.1 213.6L559.5 213.6Q560.2 213.6 560.8 213.3Q561.4 213 561.7 212.4Q562 211.8 562 210.7L562 210.7Q562 209.7 561.7 209.1Q561.4 208.5 560.8 208.2Q560.2 208 559.5 208L559.5 208L559.1 208Z';
+  var GLYPH_PEANUT_DAY = 'M54.2 835.3L50.7 835.4Q50.6 834.7 50.6 834.1Q50.6 833.4 50.6 832.7L50.6 832.7Q50.6 829.6 50.8 826.7Q50.9 823.8 51.1 821.1L51.1 821.1Q50.2 821.4 49.7 821.5L49.7 821.5L48.8 818.2Q49.9 817.9 51 817.6Q52.2 817.4 53.3 817.2Q54.4 817.1 55.3 817Q56.2 816.9 56.8 816.9L56.8 816.9Q57.5 816.9 58.5 817Q59.4 817.1 60.4 817.5Q61.4 817.8 62.3 818.4Q63.2 819.1 63.8 820.2Q64.3 821.3 64.3 823L64.3 823Q64.3 824.7 63.6 825.8Q62.8 827 61.6 827.6Q60.3 828.3 58.8 828.6Q57.3 828.9 55.9 828.9L55.9 828.9Q55 828.9 54.1 828.8L54.1 828.8Q54.1 829.8 54.1 830.8L54.1 830.8Q54.1 832.2 54.1 833.3Q54.2 834.5 54.2 835.3L54.2 835.3ZM56.7 820.4L56.7 820.4Q56.2 820.4 55.6 820.4Q55 820.5 54.5 820.5L54.5 820.5Q54.4 821.6 54.3 822.9Q54.2 824.2 54.2 825.6L54.2 825.6Q55 825.7 55.8 825.7L55.8 825.7Q60.9 825.7 60.9 822.7L60.9 822.7Q60.9 821.5 59.8 820.9Q58.8 820.4 56.7 820.4ZM72.6 835.7L72.6 835.7Q70.5 835.7 69 834.9Q67.5 834.1 66.6 832.7Q65.8 831.3 65.8 829.4L65.8 829.4Q65.8 828.3 66.2 827.1Q66.6 825.9 67.4 824.8Q68.2 823.7 69.6 823.1Q71 822.4 73 822.4L73 822.4Q74.4 822.4 75.4 822.7Q76.3 823 77 823.5Q77.6 824 77.9 824.6Q78.2 825.2 78.3 825.7Q78.5 826.2 78.5 826.5L78.5 826.5Q78.5 828.6 76.8 829.7Q75 830.8 71.9 830.8L71.9 830.8Q71.2 830.8 70.6 830.7Q69.9 830.6 69.4 830.6L69.4 830.6Q69.8 831.6 70.7 832.1Q71.6 832.6 72.6 832.6L72.6 832.6Q74 832.6 75.1 832.1Q76.2 831.6 77.2 830.5L77.2 830.5L79 833.2Q78.4 833.7 77.5 834.3Q76.7 834.9 75.5 835.3Q74.3 835.7 72.6 835.7ZM73 825.5L73 825.5Q71.8 825.5 70.8 826.2Q69.9 826.8 69.5 827.8L69.5 827.8Q70 827.9 70.5 828Q71 828 71.5 828L71.5 828Q72 828 72.6 827.9Q73.2 827.8 73.7 827.7Q74.3 827.5 74.7 827.2Q75.1 827 75.1 826.6L75.1 826.6Q75.1 826.5 74.9 826.2Q74.7 826 74.3 825.7Q73.9 825.5 73 825.5ZM85.9 835.7L85.9 835.7Q84.4 835.7 83.1 834.9Q81.8 834 81.1 832.7Q80.3 831.3 80.3 829.6L80.3 829.6Q80.3 828 80.9 826.7Q81.5 825.4 82.5 824.5Q83.5 823.6 84.8 823.1Q86.1 822.6 87.6 822.6L87.6 822.6Q88.8 822.6 89.9 822.9L89.9 822.9Q90 822.5 90.1 822L90.1 822L93.7 822.6Q93.5 823 93.4 823.8Q93.2 824.6 93.1 825.6Q93 826.6 93 827.6Q92.9 828.6 92.9 829.4L92.9 829.4Q92.9 830 93 830.7Q93.1 831.3 93.4 831.7Q93.7 832 94.4 832L94.4 832L94.7 832L94.1 835.7Q92.7 835.7 91.8 835.2Q90.9 834.8 90.4 834L90.4 834Q89.5 835 88.3 835.3Q87.2 835.7 85.9 835.7ZM83.8 830L83.8 830Q83.9 831 84.6 831.6Q85.3 832.2 86.4 832.2L86.4 832.2Q87.5 832.2 88.2 831.6Q88.9 831.1 89.4 830.1L89.4 830.1Q89.4 829.7 89.4 829.4L89.4 829.4Q89.4 828.6 89.4 827.8Q89.5 827.1 89.5 826.3L89.5 826.3Q88.6 826 87.7 826L87.7 826Q86.5 826 85.6 826.4Q84.7 826.9 84.2 827.7Q83.7 828.5 83.7 829.5L83.7 829.5Q83.7 829.7 83.7 829.8Q83.7 829.9 83.8 830ZM99.5 835.5L96.2 835.5Q96.1 833.7 96.1 832.1Q96 830.5 96 829L96 829Q96 827.4 96.1 825.9Q96.1 824.4 96.2 822.6L96.2 822.6L99.7 822.6Q99.6 823.5 99.6 824.5L99.6 824.5Q100.3 823.6 101.3 823Q102.3 822.4 103.6 822.4L103.6 822.4Q104.9 822.4 105.8 822.8Q106.6 823.3 107.1 824.1Q107.6 824.8 107.8 825.8Q108.1 826.8 108.1 828Q108.2 829.1 108.2 830.3L108.2 830.3Q108.2 831.5 108.1 832.7Q108.1 833.9 108.1 834.6Q108 835.4 108 835.6L108 835.6L104.5 835.6Q104.5 834.7 104.6 833.7Q104.6 832.7 104.6 831.8Q104.7 830.8 104.7 830.1L104.7 830.1Q104.7 825.6 103.2 825.6L103.2 825.6Q102 825.6 101.1 826.6Q100.1 827.7 99.4 829.2L99.4 829.2Q99.4 829.4 99.4 829.7L99.4 829.7Q99.4 830.7 99.4 831.7Q99.4 832.8 99.5 833.8Q99.5 834.8 99.5 835.5L99.5 835.5ZM114.9 835.7L114.9 835.7Q113.6 835.7 112.7 835.2Q111.8 834.8 111.3 834Q110.8 833.1 110.5 832.1Q110.3 831.1 110.2 830Q110.2 828.9 110.2 827.9L110.2 827.9Q110.2 826.7 110.2 825.5Q110.3 824.3 110.4 822.8L110.4 822.8L114.2 822.6Q114.2 823 114 823.9Q113.9 824.8 113.8 825.9Q113.7 827 113.7 828.3L113.7 828.3Q113.7 830.3 114.1 831.3Q114.4 832.3 115.1 832.3L115.1 832.3Q116.6 832.3 117.2 830.2Q117.9 828.1 117.9 823.6L117.9 823.6L117.9 822.7L119.7 822.6L121.8 822.6Q121.6 824.5 121.4 826.2Q121.3 827.9 121.2 829Q121.2 830.1 121.2 830.5L121.2 830.5Q121.2 831.5 121.3 831.9Q121.5 832.3 121.9 832.3L121.9 832.3Q122.1 832.3 122.4 832.2Q122.6 832.1 123 831.9L123 831.9L122.8 835.5Q122 835.6 121.4 835.6L121.4 835.6Q120.4 835.6 119.8 835.3Q119.2 834.9 118.8 834.3L118.8 834.3Q118.1 834.9 117.2 835.3Q116.2 835.7 114.9 835.7ZM131 835.7L131 835.7Q129.7 835.7 129 835.1Q128.3 834.6 127.9 833.6Q127.6 832.7 127.5 831.5Q127.4 830.3 127.4 828.9L127.4 828.9Q127.4 827.5 127.5 826L127.5 826Q126.1 826.2 124.8 826.5L124.8 826.5L124.2 823.2Q125.9 822.8 127.9 822.6L127.9 822.6Q128 821.5 128.2 820.3Q128.4 819.1 128.6 817.8L128.6 817.8L132.2 818.1Q131.9 819.2 131.7 820.3Q131.5 821.4 131.4 822.4L131.4 822.4Q132.6 822.4 133.6 822.4Q134.7 822.5 135.5 822.6L135.5 822.6L135.1 825.9Q134.4 825.8 133.6 825.8Q132.8 825.7 132 825.7L132 825.7Q131.5 825.7 131 825.8L131 825.8Q130.9 827.3 130.9 828.4Q130.9 829.5 130.9 829.9L130.9 829.9Q130.9 831.1 131 831.6Q131.1 832.1 131.4 832.1L131.4 832.1Q131.8 832.1 132.2 831.9Q132.7 831.6 133.1 831.2Q133.5 830.8 133.8 830.3L133.8 830.3L135.5 833.7Q133.4 835.7 131 835.7ZM80.7 861.7L80.7 861.7L77.2 861.3L78 846.9Q77.4 847 77 847.2L77 847.2L76.3 843.6Q77.4 843.4 79.1 843.2Q80.7 842.9 82.5 842.9L82.5 842.9Q83.8 842.9 85.2 843.2Q86.6 843.5 87.8 844.1Q89.1 844.8 90.1 845.8Q91.1 846.9 91.7 848.5Q92.3 850 92.3 852.1L92.3 852.1Q92.3 855.1 91.3 857.2Q90.4 859.3 88.5 860.4Q86.7 861.6 84.2 861.6L84.2 861.6Q82.5 861.6 80.8 860.9L80.8 860.9Q80.8 861.3 80.7 861.7ZM82.3 846.4L82.3 846.4Q82 846.4 81.7 846.4L81.7 846.4Q81.5 850.3 81.3 853.1Q81.2 855.8 81 857.6L81 857.6Q81.7 857.9 82.4 858Q83.2 858.2 84 858.2L84 858.2Q85.7 858.2 86.8 857.3Q87.8 856.5 88.3 855Q88.7 853.6 88.7 852L88.7 852Q88.7 850.6 88.3 849.7Q87.9 848.8 87.3 848.2Q86.7 847.6 85.9 847.2Q85.1 846.9 84.4 846.7Q83.7 846.5 83.1 846.5Q82.6 846.4 82.3 846.4ZM99.3 861.7L99.3 861.7Q97.8 861.7 96.5 860.9Q95.2 860 94.5 858.7Q93.7 857.3 93.7 855.6L93.7 855.6Q93.7 854 94.3 852.7Q94.9 851.4 95.9 850.5Q96.9 849.6 98.2 849.1Q99.5 848.6 101 848.6L101 848.6Q102.2 848.6 103.3 848.9L103.3 848.9Q103.4 848.5 103.5 848L103.5 848L107 848.6Q106.9 849 106.8 849.8Q106.6 850.6 106.5 851.6Q106.4 852.6 106.4 853.6Q106.3 854.6 106.3 855.4L106.3 855.4Q106.3 856 106.4 856.7Q106.5 857.3 106.8 857.7Q107.1 858 107.8 858L107.8 858L108.1 858L107.5 861.7Q106.1 861.7 105.2 861.2Q104.3 860.8 103.8 860L103.8 860Q102.9 861 101.7 861.3Q100.6 861.7 99.3 861.7ZM97.2 856L97.2 856Q97.3 857 98 857.6Q98.7 858.2 99.8 858.2L99.8 858.2Q100.9 858.2 101.6 857.6Q102.3 857.1 102.8 856.1L102.8 856.1Q102.8 855.7 102.8 855.4L102.8 855.4Q102.8 854.6 102.8 853.8Q102.8 853.1 102.9 852.3L102.9 852.3Q102 852 101.1 852L101.1 852Q99.9 852 99 852.4Q98.1 852.9 97.6 853.7Q97.1 854.5 97.1 855.5L97.1 855.5Q97.1 855.7 97.1 855.8Q97.1 855.9 97.2 856ZM112.7 865.7L112.7 865.7L109.6 864Q110.8 862.7 111.9 861.3Q113 860 114 858.5L114 858.5Q113 857.2 112 855.7Q111 854.1 110.2 852.7Q109.3 851.2 108.8 850L108.8 850L112.2 848.6Q112.6 849.6 113.2 850.8Q113.8 851.9 114.5 853.2Q115.2 854.4 116 855.5L116 855.5Q118.3 851.8 119.7 848.2L119.7 848.2L123.2 849.6Q122.3 851.4 121.1 853.5Q119.9 855.6 118.5 857.7Q117.2 859.8 115.7 861.9Q114.2 863.9 112.7 865.7Z';
 
   function create(stage) {
     var defs = stage.defsWorld, bg = stage.layers.bg, mid = stage.layers.mid;
@@ -2893,13 +3017,7 @@
     var bbCones = P(bg, polyD([[488, 166], [494, 166], [512, 206], [470, 206]]) + polyD([[518, 166], [524, 166], [542, 206], [500, 206]]) +
       polyD([[548, 166], [554, 166], [572, 206], [530, 206]]), { fill: linV(166, 206, [[0, '#DCE8FF', 0.34], [1, '#DCE8FF', 0]]) });
     P(bg, ellD(491, 154.6, 3, 1) + ellD(521, 154.6, 3, 1) + ellD(551, 154.6, 3, 1), { fill: '#FFF7E0' });
-    function bbTexts(parent, extra) {
-      var base = { 'font-family': FONT_BB, 'font-weight': 700, 'font-size': 13.6 };
-      function T(attrs) { var a = {}, k; for (k in base) a[k] = base[k]; for (k in attrs) a[k] = attrs[k]; for (k in extra) a[k] = extra[k]; return LB.el('text', a, parent); }
-      T({ x: 465, y: 184, 'letter-spacing': 0.6, text: 'OVER' });
-      T({ x: 515, y: 202.2, 'font-size': 21.6, 'text-anchor': 'middle', textLength: 104, lengthAdjust: 'spacingAndGlyphs', text: '$1 BILLION' });
-      T({ x: 565, y: 215.2, 'text-anchor': 'end', 'letter-spacing': 0.3, text: 'RECOVERED' });
-    }
+    function bbTexts(parent, extra) { P(parent, GLYPH_BILLBOARD, extra); }
     var bbTextGlow = G(bg, {});
     bbTexts(bbTextGlow, { fill: '#8FB2FF', stroke: '#8FB2FF', 'stroke-width': 2.4, 'stroke-linejoin': 'round' });
     bbTexts(G(bg, {}), { fill: '#FFFFFF' });
@@ -3339,9 +3457,7 @@
       P(mid, polyD([[162, 792], [170, 786], [170, 874], [162, 880]]), { fill: '#CBBFA8' });
       P(mid, rectD(84, 784, 20, 13), { fill: '#D8C29C', opacity: 0.85 });
       var lbl = G(mid, { transform: 'rotate(-6 94 840)' });
-      var tA = { 'font-family': FONT_BOX, 'font-size': 21, 'text-anchor': 'middle', fill: '#2B2522', stroke: '#FFFFFF', 'stroke-width': 3, 'paint-order': 'stroke', 'stroke-linejoin': 'round' };
-      tA.x = 92; tA.y = 834; tA.text = 'Peanut'; LB.el('text', tA, lbl);
-      tA.x = 100; tA.y = 860; tA.text = 'Day'; LB.el('text', tA, lbl);
+      P(lbl, GLYPH_PEANUT_DAY, { fill: '#2B2522', stroke: '#FFFFFF', 'stroke-width': 3, 'paint-order': 'stroke', 'stroke-linejoin': 'round' });
     })();
 
     // ================================================================ MID: state layers (shoujo bokeh, villain panel, impact)
@@ -3485,7 +3601,10 @@
   var LB = window.LB;
   var PI = Math.PI, TAU = PI * 2;
 
-  var FONT_JP = "'Dela Gothic One', 'Hiragino Kaku Gothic StdN', 'Yu Gothic', 'Noto Sans JP', sans-serif";
+  // Japanese cards: Dela Gothic One (one weight, 400). The texts ask for weight 900 with font-synthesis off (JP_HEAVY), so
+  // Dela is used as is while a system fallback picks its heaviest cut (Hiragino W8/W9, Yu Gothic Bold, Noto Black).
+  var FONT_JP = "'Dela Gothic One', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Noto Sans CJK JP', 'Noto Sans JP', sans-serif";
+  var JP_HEAVY = { 'font-family': FONT_JP, 'font-weight': 900, style: 'font-synthesis:none' };
   var FONT_BANG = "'Bangers', Impact, 'Arial Black', sans-serif";
   var FONT_ROUND = "'M PLUS Rounded 1c', 'Arial Rounded MT Bold', 'Helvetica Neue', Arial, sans-serif";
   var GREEN = '#3CFF6E', YELLOW = '#FFD60A', INK = '#111111';
@@ -3498,7 +3617,7 @@
       var swallow = function () {};
       document.fonts.load('400 100px "Dela Gothic One"', 'ゴン!!訴訟編却下').catch(swallow);
       document.fonts.load('400 100px "Bangers"', 'THE LAWSUIT ARC CASE DISMISSED').catch(swallow);
-      document.fonts.load('900 100px "M PLUS Rounded 1c"', 'CLASS: HEALER +999').catch(swallow);
+      document.fonts.load('900 100px "M PLUS Rounded 1c"', 'CLASS: HEALER +999 HP').catch(swallow);
     } catch (e) { /* fonts API missing: cards fall back to system fonts */ }
   })();
 
@@ -3653,13 +3772,19 @@
               var rr = it.size * a * (0.35 + 1.25 * LB.ease.outCubic(pop));
               it.ring.setAttribute('r', n2(rr));
               it.ring.setAttribute('stroke-width', n2(Math.max(0.6, it.size * 0.16 * (1 - pop))));
-              setOp(it.ring, Math.sin(PI * pop) * 1.2);
+              setOp(it.ring, Math.sin(PI * pop) * 0.6);
             }
           });
         };
       })();
 
-      // ------------------------------------------------------------ impact burst (screen space, red impact frame)
+      // ------------------------------------------------------------ impact burst (red impact frame)
+      // The white rays sit BEHIND the characters (a group appended to stage.layers.mid, i.e. after the scene's red impact
+      // fill, which scene.create made before fx.create), so the three silhouettes stay solid black shapes on the red and
+      // white burst. They live in world space but are counter-scaled by the camera zoom, so they keep their screen size.
+      // Only the small jagged contact star stays on top, in fxScreen.
+      var gBurstBack = LB.g(stage.layers.mid, { class: 'fx-burst-back', 'pointer-events': 'none' });
+      vis(gBurstBack, false);
       (function () {
         var rnd = LB.rng(1102);
         var d = '', N = 44;
@@ -3671,23 +3796,29 @@
             'L' + n2(Math.cos(ang - hw) * r1) + ' ' + n2(Math.sin(ang - hw) * r1) +
             'L' + n2(Math.cos(ang + hw) * r1) + ' ' + n2(Math.sin(ang + hw) * r1) + 'Z';
         }
-        var spin = LB.g(gBurst);
+        var spin = LB.g(gBurstBack);
         LB.path(spin, d, { fill: '#FFFFFF' });
+        var star = LB.g(gBurst);
         // jagged white contact flash with an ink rim
         var jag = '', M = 14;
         for (var j = 0; j < M * 2; j++) {
           var a2 = j / (M * 2) * TAU, r = j % 2 ? 26 + rnd() * 10 : 58 + rnd() * 34;
           jag += (j ? 'L' : 'M') + n2(Math.cos(a2) * r) + ' ' + n2(Math.sin(a2) * r);
         }
-        LB.path(spin, jag + 'Z', { fill: '#FFFFFF', stroke: INK, 'stroke-width': 5, 'stroke-linejoin': 'round', 'paint-order': 'stroke' });
+        LB.path(star, jag + 'Z', { fill: '#FFFFFF', stroke: INK, 'stroke-width': 5, 'stroke-linejoin': 'round', 'paint-order': 'stroke' });
         fx.impactBurst = function (st, t) {
           var k = st ? c01(num(st.k, 0)) : 0;
+          vis(gBurstBack, k > 0.002);
           if (!vis(gBurst, k > 0.002)) return;
-          var p = at2screen(stage, ctx, st.at, { x: 500, y: 500 });
-          var f = twos(t);
+          var w = at2world(ctx, st.at, { x: 500, y: 500 }), p = LB.worldToScreen(stage, w);
+          var cam = stage.cam || { zoom: 1, rot: 0 }, z = num(cam.zoom, 1) || 1;
+          var f = twos(t), sp = 'rotate(' + n2(jit(f * 1.7 + 4, 6)) + ') scale(' + n2(0.92 + 0.16 * LB.hash(f + 9)) + ')';
           tf(gBurst, p.x, p.y, 0);
-          spin.setAttribute('transform', 'rotate(' + n2(jit(f * 1.7 + 4, 6)) + ') scale(' + n2(0.92 + 0.16 * LB.hash(f + 9)) + ')');
+          star.setAttribute('transform', sp);
+          gBurstBack.setAttribute('transform', 'translate(' + n2(w.x) + ' ' + n2(w.y) + ') rotate(' + n2(-num(cam.rot, 0)) + ') scale(' + LB.r4(1 / z) + ')');
+          spin.setAttribute('transform', sp);
           setOp(gBurst, k);
+          setOp(gBurstBack, k);
         };
       })();
 
@@ -3894,8 +4025,9 @@
           notes.forEach(function (o) {
             var q = (p - o.b) / 0.42;
             if (!vis(o.n, q > 0 && q < 1)) return;
-            var x = at.x + 14 + 46 * q + 9 * Math.sin(TAU * (q * 1.1 + o.ph)), y = at.y - 16 - 105 * LB.ease.outQuad(q);
-            var s = (0.55 + 0.45 * LB.ease.outBack(c01(q / 0.2))) * o.sx * 1.25;
+            // rise beside the cheek (toward the Friar), not across the King's eyes and crown band
+            var x = at.x + 32 + 30 * q + 9 * Math.sin(TAU * (q * 1.1 + o.ph)), y = at.y - 6 - 105 * LB.ease.outQuad(q);
+            var s = (0.55 + 0.45 * LB.ease.outBack(c01(q / 0.2))) * o.sx * 0.95;
             tf(o.n, x, y, 16 * Math.sin(TAU * (q * 0.9 + o.ph)), s);
             setOp(o.n, LB.smoothstep(0, 0.08, q) * (1 - LB.smoothstep(0.72, 1, q)));
           });
@@ -3911,12 +4043,13 @@
         var rnd = LB.rng(5000), L = [];
         for (var i = 0; i < 19; i++) {
           var u = i / 18, edge = Math.pow(Math.abs(u - 0.5) * 2, 2);
-          // a curtain hanging from just above the hair to the brows, shorter at the temples
-          L.push({ x: -66 + u * 132 + (rnd() - 0.5) * 3, top: -80 + (rnd() - 0.3) * 10 + 26 * edge,
-            len: 58 + rnd() * 26 - 30 * edge, light: i % 3 === 1, d: rnd() * 0.4 });
+          // a curtain hanging from above the frame top (beat 7 camera) over the hair, ending on the forehead between
+          // -49 and -25: clear of the brows (-14) and the lens tops (-9.5), so the payoff face reads through it
+          L.push({ x: -66 + u * 132 + (rnd() - 0.5) * 3, top: -116 + (rnd() - 0.3) * 10 + 20 * edge,
+            len: 70 + rnd() * 14 - 20 * edge, light: i % 3 === 1, d: rnd() * 0.4 });
         }
-        // dark cap over the crown, its lower edge dissolving at the brows (head center = eye line)
-        shade.setAttribute('d', 'M-74 -30C-74 -84 -42 -100 0 -100C42 -100 74 -84 74 -30L70 6L-70 6Z');
+        // dark cap over the crown, its lower edge dissolving on the forehead above the brows (head center = eye line)
+        shade.setAttribute('d', 'M-74 -50C-74 -100 -42 -118 0 -118C42 -118 74 -100 74 -50L70 -24L-70 -24Z');
         fx.gloom = function (st) {
           var k = st ? c01(num(st.k, 0)) : 0;
           if (!vis(gGloom, k > 0.002)) return;
@@ -3996,7 +4129,7 @@
         // ink drop shadow, then the lettering (stroke painted under the fill); y centers the ink box (asc 0.91em)
         // ゴ big, ン smaller and dropped, !! tall: hand-lettered manga SFX rhythm (string stays exactly ゴン!!)
         function gon(attrs) {
-          var t = textEl(inner, '', Object.assign({ x: 0, y: 66, 'font-family': FONT_JP, 'font-size': 160, 'stroke-linejoin': 'round' }, attrs));
+          var t = textEl(inner, '', Object.assign({ x: 0, y: 66, 'font-size': 160, 'stroke-linejoin': 'round' }, JP_HEAVY, attrs));
           LB.el('tspan', { 'font-size': 182, dy: 4, text: 'ゴ' }, t);
           LB.el('tspan', { 'font-size': 142, dx: -12, dy: 6, text: 'ン' }, t);
           LB.el('tspan', { 'font-size': 168, dx: -6, dy: -14, 'letter-spacing': -2, text: '!!' }, t);
@@ -4008,7 +4141,7 @@
         cards.gon = function (age, k, t) {
           var s = age < 0.06 ? LB.lerp(1.6, 1, LB.ease.outBack(c01(age / 0.06))) : 1;
           var f = twos(t), amp = RM ? 2 : 4;
-          tf(g, 560 + jit(f * 3.1 + 1, amp), 220 + jit(f * 5.3 + 2, amp), -10, s);
+          tf(g, 582 + jit(f * 3.1 + 1, amp), 162 + jit(f * 5.3 + 2, amp), -10, s);
           setOp(g, k);
         };
         cards.gon.g = g;
@@ -4022,14 +4155,15 @@
         var bandNode = LB.el('rect', { x: -10, y: 640, width: 1020, height: 370, fill: url(band) }, g);
         var inner = LB.g(g);
         var red = grad(dS, 'linearGradient', [[0, '#F0383A'], [0.5, '#C8161E'], [1, '#8E0A12']], { x1: 0, y1: 0, x2: 0, y2: 1 });
-        var kan = { y: 0, 'font-family': FONT_JP, 'font-size': 140, 'letter-spacing': 14, 'stroke-linejoin': 'round' };
+        var kan = Object.assign({ y: 0, 'font-size': 140, 'letter-spacing': 14, 'stroke-linejoin': 'round' }, JP_HEAVY);
         textEl(inner, '訴訟編', Object.assign({ x: 7, fill: INK, stroke: INK, 'stroke-width': 32 }, kan));
         textEl(inner, '訴訟編', Object.assign({ x: 7, fill: url(red), stroke: '#FFFFFF', 'stroke-width': 10, 'paint-order': 'stroke' }, kan));
         // rules flanking the English line
         LB.path(inner, 'M-330 64H-205M205 64H330', { stroke: INK, 'stroke-width': 9, 'stroke-linecap': 'round', fill: 'none' });
         LB.path(inner, 'M-330 64H-205M205 64H330', { stroke: '#FFFFFF', 'stroke-width': 3.5, 'stroke-linecap': 'round', fill: 'none' });
         LB.path(inner, 'M-190 64l7 -7l7 7l-7 7ZM190 64l-7 -7l-7 7l7 7Z', { fill: '#C8161E', stroke: '#FFFFFF', 'stroke-width': 2.5 });
-        textEl(inner, 'THE LAWSUIT ARC', { x: 2, y: 88, 'font-family': FONT_BANG, 'font-size': 65, 'letter-spacing': 3, fill: '#FFFFFF', stroke: INK, 'stroke-width': 11, 'stroke-linejoin': 'round', 'paint-order': 'stroke' });
+        // textLength = the Bangers width, so a fallback font is squeezed to fit between the rules
+        textEl(inner, 'THE LAWSUIT ARC', { x: 2, y: 88, 'font-family': FONT_BANG, 'font-size': 65, 'letter-spacing': 3, textLength: 405, lengthAdjust: 'spacingAndGlyphs', fill: '#FFFFFF', stroke: INK, 'stroke-width': 11, 'stroke-linejoin': 'round', 'paint-order': 'stroke' });
         vis(g, false);
         cards.arc = function (age, k, t) {
           var s = age < 0.1 ? LB.lerp(2.4, 1, LB.ease.outBack(c01(age / 0.1))) : 1;
@@ -4084,12 +4218,12 @@
         vis(g, false);
         cards.hp = function (age, k, t) {
           var pop = age < 0.07 ? LB.lerp(0.6, 1.15, LB.ease.outQuad(age / 0.07)) : age < 0.14 ? LB.lerp(1.15, 1, LB.ease.inOutQuad((age - 0.07) / 0.07)) : 1;
-          var rise = 60 * LB.ease.outCubic(c01(age / 0.5));
-          // follow the Friar's head (stable when the bump pops at 4.38); start just above where the bump sits
+          // follow the Friar's head (stable when the bump pops at 4.38). In the two-shot the billboard hangs right above
+          // his head, so the card pops in already clear of its OVER line (one text at a time) and only rises 25.
           var h = ctx.chars && ctx.chars.friar ? ctx.anchor('friar', 'head') : null;
           var b = h ? LB.worldToScreen(stage, { x: h.x, y: h.y - 84 }) : { x: 300, y: 330 };
-          var x = LB.clamp(b.x, 210, 790), y = LB.clamp(b.y - 100, 90, 900);
-          tf(g, x, y - rise, 0);
+          var x = LB.clamp(b.x + 20, 210, 790), y = LB.clamp(b.y - 175, 90, 900); // +20: clear of the sound icon
+          tf(g, x, y - 25 * LB.ease.outCubic(c01(age / 0.5)), 0);
           inner.setAttribute('transform', 'scale(' + n2(pop) + ')');
           setOp(g, k); // the director fades k over the card's last 0.08 s
         };
@@ -4151,7 +4285,7 @@
         var ring = roughRect(Wd, H, 34, 8, 1.5, 1) + roughRect(Wd - 30, H - 30, 21, 8, 1.3, 2) +
           roughRect(Wd - 46, H - 46, 14, 8, 1.1, 3) + roughRect(Wd - 56, H - 56, 10, 8, 1.0, 4);
         LB.path(ink, ring, { fill: RED, 'fill-rule': 'evenodd' });
-        textEl(ink, '却下', { x: 3, y: 66, 'font-family': FONT_JP, 'font-size': 176, 'letter-spacing': 6, fill: RED });
+        textEl(ink, '却下', Object.assign({ x: 3, y: 66, 'font-size': 176, 'letter-spacing': 6, fill: RED }, JP_HEAVY));
         // ink splatter thrown off when it lands
         var splat = '';
         [[-244, -112, 4.2], [-232, -136, 2], [250, 120, 4.8], [266, 98, 2.2], [238, -138, 2.6], [-258, 128, 3]].forEach(function (s) { splat += circD(s[0], s[1], s[2]); });
@@ -4159,7 +4293,8 @@
         // landing shockwave: the stamp outline kicked outward once
         var wave = LB.el('rect', { x: -Wd / 2, y: -H / 2, width: Wd, height: H, rx: 36, fill: 'none', stroke: '#FFFFFF', 'stroke-width': 7 }, inner);
         var eng = LB.g(g);
-        textEl(eng, 'CASE DISMISSED', { x: 0, y: 23, 'font-family': FONT_BANG, 'font-size': 60, 'letter-spacing': 3, fill: '#FFFFFF', stroke: INK, 'stroke-width': 11, 'stroke-linejoin': 'round', 'paint-order': 'stroke' });
+        // textLength = the Bangers width: a fallback font cannot run off the frame edge
+        textEl(eng, 'CASE DISMISSED', { x: 0, y: 23, 'font-family': FONT_BANG, 'font-size': 60, 'letter-spacing': 3, textLength: 362, lengthAdjust: 'spacingAndGlyphs', fill: '#FFFFFF', stroke: INK, 'stroke-width': 11, 'stroke-linejoin': 'round', 'paint-order': 'stroke' });
         vis(g, false);
         cards.stamp = function (age, k, t) {
           var land = 0.06, s;
@@ -4513,30 +4648,39 @@
     o2.frequency.exponentialRampToValueAtTime(6030, T + 0.25);
   });
 
-  // 2.78 card slam: sine 60 Hz thud (200 ms) + metallic hit (two detuned squares at 1.1 and 1.6 kHz, 60 ms)
+  // 2.78 card slam: sine 60 Hz thud (200 ms) + metallic hit (two detuned squares at 1.1 and 1.6 kHz, 60 ms).
+  // Phone speakers drop everything under about 450 Hz: the thud starts higher and a 2.4 kHz click carries the hit.
   cue('slam', 2.78, 0.21, 'high', function (v, T) {
     var gt = v.gain(v.sat(LV.high * 0.8));
     perc(gt.gain, T, 2.4, 0.002, 0.2);
-    var o = v.osc('sine', 95, T, T + 0.21, gt);
-    o.frequency.exponentialRampToValueAtTime(60, T + 0.04);
+    var o = v.osc('sine', 160, T, T + 0.21, gt);
+    o.frequency.exponentialRampToValueAtTime(60, T + 0.05);
+    var gn = v.gain();
+    perc(gn.gain, T, LV.high * 1.4, 0.0005, 0.025);
+    v.noise(T, T + 0.03, v.filter('bandpass', 2400, 1.2, gn));
     var gm = v.gain();
-    perc(gm.gain, T, LV.high * 0.38, 0.0008, 0.06);
+    perc(gm.gain, T, LV.high * 0.6, 0.0008, 0.06);
     var hp = v.filter('highpass', 700, 0.7, gm);
     v.osc('square', 1100, T, T + 0.065, hp).detune.value = -12;
     v.osc('square', 1600, T, T + 0.065, hp).detune.value = 12;
   });
 
-  // 2.80-3.42 villain drone: two sawtooths at D2 and Eb2, low-passed at 400 Hz, fading out by 3.42
+  // 2.80-3.42 villain drone: two sawtooths at D2 and Eb2, low-passed (the sheet's 400 Hz, opened up for phones), fading out by 3.42
+  var DRONE_PRE = 2.5, DRONE_SAT = 1.1; // drive into the tanh shaper, and its output level
   cue('drone', 2.80, 0.62, 'med', function (v, T) {
-    // the fundamentals are trimmed (high-pass 110 Hz) so the D / Eb beating lives in harmonics phones can play
-    var g = v.gain(v.filter('highpass', 110, 0.6, v.out)), a = LV.med * 0.5;
+    // the fundamentals are trimmed (high-pass 160 Hz) and the low-pass opened and saturated, so the D / Eb beating lives
+    // in harmonics phone speakers can play (at 400 Hz the whole drone vanished on a phone)
+    var g = v.gain(v.filter('highpass', 160, 0.6, v.out)), a = LV.med * 0.5;
     shape(g.gain, [[T, 0], [T + 0.08, a], [T + 0.42, a], [T + 0.615, 0]]);
-    [['D2', -0.35], ['Eb2', 0.35]].forEach(function (d) {
-      var lp = v.filter('lowpass', 400, 2.2);
+    [['D2', 'A3', -0.35], ['Eb2', 'Bb3', 0.35]].forEach(function (d) {
+      var lp = v.filter('lowpass', 900, 2.2);
       var pan = v.ac.createStereoPanner ? v.ac.createStereoPanner() : null;
-      if (pan) { pan.pan.value = d[1]; pan.connect(g); lp.connect(pan); } else lp.connect(g);
-      shape(lp.frequency, [[T, 330], [T + 0.32, 460], [T + 0.62, 360]]);
-      v.osc('sawtooth', hz(d[0]), T, T + 0.62, lp);
+      var sat = v.sat(DRONE_SAT, pan || g);
+      if (pan) { pan.pan.value = d[2]; pan.connect(g); }
+      lp.connect(sat);
+      shape(lp.frequency, [[T, 900], [T + 0.32, 1400], [T + 0.62, 1000]]);
+      v.osc('sawtooth', hz(d[0]), T, T + 0.62, v.gain(lp, DRONE_PRE));
+      v.osc('sawtooth', hz(d[1]), T, T + 0.62, v.gain(lp, DRONE_PRE * 0.5)); // A3 / Bb3 (a 12th up), 6 dB down
     });
   }, { sustain: true });
 
@@ -4557,24 +4701,25 @@
     });
   });
 
-  // 3.56-3.80 slide whistle: sine 300 -> 1200 Hz with light vibrato (plus a breath of noise on the pitch)
-  cue('slideWhistle', 3.56, 0.25, 'med', function (v, T) {
+  // 3.62-3.80 slide whistle: sine 300 -> 1200 Hz with light vibrato (plus a breath of noise on the pitch). It starts with
+  // the tilt (the socks shot holds to 3.62) and still tops out as the camera lands on his face at 3.80.
+  cue('slideWhistle', 3.62, 0.19, 'med', function (v, T) {
     var g = v.gain(), a = LV.med * 0.6;
-    shape(g.gain, [[T, 0], [T + 0.02, a], [T + 0.225, a], [T + 0.24, 0]]);
-    var o = v.osc('sine', 300, T, T + 0.245, g);
-    o.frequency.exponentialRampToValueAtTime(1200, T + 0.24);
-    v.lfo(7, 22, o.detune, T, T + 0.245);
+    shape(g.gain, [[T, 0], [T + 0.02, a], [T + 0.165, a], [T + 0.18, 0]]);
+    var o = v.osc('sine', 300, T, T + 0.185, g);
+    o.frequency.exponentialRampToValueAtTime(1200, T + 0.18);
+    v.lfo(7, 22, o.detune, T, T + 0.185);
     var gb = v.gain();
-    shape(gb.gain, [[T, 0], [T + 0.02, a * 0.5], [T + 0.225, a * 0.5], [T + 0.24, 0]]);
+    shape(gb.gain, [[T, 0], [T + 0.02, a * 0.5], [T + 0.165, a * 0.5], [T + 0.18, 0]]);
     var bp = v.filter('bandpass', 300, 9, gb);
     bp.frequency.setValueAtTime(300, T);
-    bp.frequency.exponentialRampToValueAtTime(1200, T + 0.24);
-    v.noise(T, T + 0.245, bp);
+    bp.frequency.exponentialRampToValueAtTime(1200, T + 0.18);
+    v.noise(T, T + 0.185, bp);
   }, { sustain: true });
 
   // 3.82 mustache boing: sine 220 Hz with a 30 Hz pitch wobble (180 ms)
   cue('boing', 3.82, 0.19, 'med', function (v, T) {
-    var g = v.gain(v.sat(LV.med * 0.62));
+    var g = v.gain(v.sat(LV.med * 1.1)); // loud enough to survive a phone speaker (was 10 dB under the bonk there)
     perc(g.gain, T, 2.0, 0.002, 0.18);
     var o = v.osc('sine', 220, T, T + 0.19, g);
     v.lfo(30, [[T, 420], [T + 0.18, 40]], o.detune, T, T + 0.19);
@@ -4652,18 +4797,19 @@
     v.noise(T, T + 0.085, lp);
   });
 
-  // 4.92 hanko stamp: sine 100 -> 50 Hz (150 ms) + a 30 ms noise hit
-  cue('stamp', 4.92, 0.16, 'high', function (v, T) {
-    var gt = v.gain(v.sat(LV.high * 0.8));
+  // 4.98 hanko stamp: sine 100 -> 50 Hz (150 ms) + a 30 ms noise hit, on the stamp's visible contact (fx lands it 4.98)
+  // (the thud starts higher and the hit sits at 1.2 kHz so the stamp still lands on a phone speaker)
+  cue('stamp', 4.98, 0.16, 'high', function (v, T) {
+    var gt = v.gain(v.sat(LV.high * 0.95));
     perc(gt.gain, T, 2.6, 0.0015, 0.15);
-    var o = v.osc('sine', 100, T, T + 0.16, gt);
-    o.frequency.exponentialRampToValueAtTime(50, T + 0.15);
+    var o = v.osc('sine', 180, T, T + 0.16, gt);
+    o.frequency.exponentialRampToValueAtTime(55, T + 0.15);
     var gn = v.gain();
-    perc(gn.gain, T, LV.high * 2.8, 0.0005, 0.03);
-    v.noise(T, T + 0.035, v.filter('bandpass', 750, 0.75, gn));
+    perc(gn.gain, T, LV.high * 3.2, 0.0005, 0.05);
+    v.noise(T, T + 0.055, v.filter('bandpass', 1200, 0.9, gn));
   });
-  // 4.97 one wood-block gavel knock: sine 900 Hz, 40 ms
-  cue('gavel', 4.97, 0.05, 'high', function (v, T) {
+  // 5.03 one wood-block gavel knock: sine 900 Hz, 40 ms
+  cue('gavel', 5.03, 0.05, 'high', function (v, T) {
     var g = v.gain();
     perc(g.gain, T, LV.high * 0.75, 0.0005, 0.04);
     var o = v.osc('sine', 960, T, T + 0.045, g);
@@ -4673,17 +4819,18 @@
     v.osc('sine', 900 * 2.32, T, T + 0.02, g2);
   });
 
-  // 4.96-5.40 deflate: sine 600 -> 180 Hz slide with a 6 Hz wobble (sad, droopy)
-  cue('deflate', 4.96, 0.45, 'low', function (v, T) {
+  // 5.04-5.44 deflate: sine 600 -> 180 Hz slide with a 6 Hz wobble (sad, droopy). It starts with his face falling (5.04)
+  // and is gone just before the 5.46 hard cut to the photo.
+  cue('deflate', 5.04, 0.41, 'low', function (v, T) {
     var g = v.gain(), a = LV.low * 0.65;
-    shape(g.gain, [[T, 0], [T + 0.03, a], [T + 0.36, a * 0.85], [T + 0.44, 0]]);
+    shape(g.gain, [[T, 0], [T + 0.03, a], [T + 0.33, a * 0.85], [T + 0.40, 0]]);
     var wob = v.gain(g, 0.8);
-    v.lfo(6, 0.2, wob.gain, T, T + 0.445);
-    var o = v.osc('sine', 600, T, T + 0.445, wob);
-    o.frequency.exponentialRampToValueAtTime(180, T + 0.44);
-    v.lfo(6, 45, o.detune, T, T + 0.445);
-    var o2 = v.osc('triangle', 600, T, T + 0.445, v.gain(wob, 0.35));
-    o2.frequency.exponentialRampToValueAtTime(180, T + 0.44);
+    v.lfo(6, 0.2, wob.gain, T, T + 0.405);
+    var o = v.osc('sine', 600, T, T + 0.405, wob);
+    o.frequency.exponentialRampToValueAtTime(180, T + 0.40);
+    v.lfo(6, 45, o.detune, T, T + 0.405);
+    var o2 = v.osc('triangle', 600, T, T + 0.405, v.gain(wob, 0.35));
+    o2.frequency.exponentialRampToValueAtTime(180, T + 0.40);
   }, { sustain: true });
 
   // 5.54 shutter ka-chak: two band-passed noise clicks 60 ms apart (2 kHz and 3.5 kHz centers)
@@ -4739,7 +4886,12 @@
     ctx: null, ac: null, chain: null, muted: true, voices: [],
     synced: false, head: 0, offset: 0, lead: PRE, lastP: 0, epoch: 0, soft: 0,
     suspendTimer: 0, lastResume: 0, log: null,
+    // every scheduled cue occurrence, keyed id@A: 'live' (scheduled, not cancelled) or 'cut' (it started, then was
+    // stopped by a restart). A live key is never scheduled again; a cut one may only resume partway (sustained cues).
+    played: {},
+    unmutedAt: 0, listeners: [],
   };
+  function cueKey(c, A) { return c.id + '@' + A.toFixed(4); }
 
   function AudioCtor() { return window.AudioContext || window.webkitAudioContext || null; }
   function ensureContext() {
@@ -4750,7 +4902,18 @@
       try { S.ac = new AC(); } catch (e2) { return null; }
     }
     S.chain = buildChain(S.ac, 0);
+    // the OS can take the output away while we think we are playing (iOS call or Siri: 'interrupted', older WebKit:
+    // 'suspended'). Fall back to muted and tell the UI, so the next tap resumes inside a gesture instead of muting.
+    var onState = function () {
+      var st = S.ac && S.ac.state;
+      if (S.muted || st === 'running') return;
+      if (st === 'interrupted' || st === 'closed' || (st === 'suspended' && Date.now() - S.unmutedAt > 1500)) setMuted(true);
+    };
+    if (S.ac.addEventListener) S.ac.addEventListener('statechange', onState); else S.ac.onstatechange = onState;
     return S.ac;
+  }
+  function notifyMuted() {
+    for (var i = 0; i < S.listeners.length; i++) { try { S.listeners[i](S.muted); } catch (e) { /* ignore */ } }
   }
   // iOS: a one-sample silent buffer played inside the gesture unlocks output
   function unlock(ac) {
@@ -4775,6 +4938,8 @@
 
   function killVoice(v, now, fade) {
     if (S.log && v.start > now + fade) record(v.cue, v.A, v.T, now, 'cancel');
+    var key = cueKey(v.cue, v.A);
+    if (v.start > now) delete S.played[key]; else if (S.played[key]) S.played[key].st = 'cut';
     try { holdAt(v.out.gain, now); v.out.gain.linearRampToValueAtTime(0, now + fade); } catch (e) { /* ignore */ }
     for (var i = 0; i < v.srcs.length; i++) {
       try { v.srcs[i].stop(now + fade + 0.005); } catch (e) { /* already stopped */ }
@@ -4797,6 +4962,9 @@
       else if (allowPartial && c.sustain && T >= 0 && T + c.dur > now + 0.08) how = 'partial';
       else { record(c, A, T, now, 'skip'); return; }
     }
+    var key = cueKey(c, A), prev = S.played[key];
+    if (prev && (prev.st === 'live' || how !== 'partial')) { record(c, A, T, now, 'dup'); return; }
+    S.played[key] = { A: A, st: 'live' };
     var v = playCue(S.ac, S.chain.master, c, T, T - c.t, A, how === 'partial', now);
     S.voices.push(v);
     record(c, A, T, now, how);
@@ -4846,15 +5014,16 @@
         S.synced = false; // jump (seek, stall, tab switch): restart cleanly below
       } else if (Math.abs(drift) > DRIFT_SOFT || Math.abs(lead - S.lead) > 0.004) {
         // re-anchor (clock drift, or the output latency became known or changed): cancel the cues that have not
-        // started yet and schedule them again on the new mapping
-        var minA = P;
+        // started yet and schedule them again on the new mapping. The head only rewinds to the earliest CANCELLED cue:
+        // a cue that already started keeps sounding and must not be scheduled a second time.
+        var minA = Infinity;
         S.voices = S.voices.filter(function (v) {
           if (v.start > now + 0.002) { killVoice(v, now, 0.005); minA = Math.min(minA, v.A); return false; }
           return true;
         });
         S.offset = now - P;
         S.lead = lead;
-        S.head = Math.min(S.head, minA);
+        if (minA !== Infinity) S.head = Math.min(S.head, minA);
         S.soft++;
       } else {
         S.offset += drift * 0.03; // follow slow drift between the frame clock and the audio clock
@@ -4862,6 +5031,8 @@
     }
     if (!S.synced) {
       killAll(now, 0.025);
+      // going back (seek, loop restart from QA) or far ahead: those positions may legitimately sound again
+      if (P < S.lastP - 0.001 || P > S.lastP + 1) S.played = {};
       S.epoch++;
       S.offset = now - P;
       S.lead = leadTime(ac);
@@ -4876,8 +5047,9 @@
       scheduleRange(S.head, end, now);
       S.head = end;
     }
-    // forget finished voices
+    // forget finished voices and old cue keys
     if (S.voices.length) S.voices = S.voices.filter(function (v) { return v.end > now; });
+    for (var key in S.played) if (S.played[key].A < P - 2) delete S.played[key];
   }
 
   // ---------------------------------------------------------------- public API
@@ -4896,6 +5068,7 @@
         g.linearRampToValueAtTime(LEVEL, now + 0.03);
         S.muted = false;
         S.synced = false;
+        S.unmutedAt = Date.now();
         if (LB.clock) tick(LB.clock.t, LB.clock.loops);
       }
       return;
@@ -4903,6 +5076,7 @@
     if (S.muted) return;
     S.muted = true;
     S.synced = false;
+    notifyMuted();
     if (!S.ac) return;
     var a = S.ac, t0 = a.currentTime, mg = S.chain.master.gain;
     holdAt(mg, t0);
@@ -4942,6 +5116,8 @@
     update: function (t, loops) { tick(t, loops); },
     setMuted: setMuted,
     isMuted: function () { return S.muted; },
+    // optional (UI): fn(muted) when audio mutes itself (output interrupted). Not called for setMuted(false).
+    onMutedChange: function (fn) { if (typeof fn === 'function') S.listeners.push(fn); },
     renderLoop: renderLoop,
     cueSheet: function () {
       return CUES.map(function (c) { return { id: c.id, t: c.t, dur: c.dur, level: c.level }; });
@@ -4966,6 +5142,19 @@
 (function () {
   'use strict';
   var LB = window.LB;
+
+  // Ask for the chrome fonts now (same pattern as fx.js preloadCardGlyphs) so main.js's fonts.ready gate covers them
+  // and the wordmark, header and counts do not swap fonts during the first loop.
+  (function preloadUiFonts() {
+    try {
+      if (!document.fonts || !document.fonts.load) return;
+      var swallow = function () {};
+      document.fonts.load('400 27px Pacifico', 'Vine').catch(swallow);
+      ['400', '600', '700'].forEach(function (w) {
+        document.fonts.load(w + " 16px 'Source Sans 3'", 'The Logan Bishops @ 0123456789,').catch(swallow);
+      });
+    } catch (e) { /* fonts API missing: system fallbacks */ }
+  })();
 
   // ------------------------------------------------------------------ post data (STORYBOARD "Vine post chrome")
   var POST = {
@@ -4999,6 +5188,7 @@
     comment: svgIcon('<path d="M5 4.8h14a2.2 2.2 0 0 1 2.2 2.2v8.6a2.2 2.2 0 0 1-2.2 2.2h-7.6L6.6 21v-3.2H5a2.2 2.2 0 0 1-2.2-2.2V7A2.2 2.2 0 0 1 5 4.8z"/>'),
     revine: svgIcon('<path d="M3.8 11.2V10a3.2 3.2 0 0 1 3.2-3.2h12"/><path d="M15.8 3.6l3.2 3.2-3.2 3.2"/>' +
       '<path d="M20.2 12.8V14a3.2 3.2 0 0 1-3.2 3.2H5"/><path d="M8.2 20.4L5 17.2 8.2 14"/>', 'vn-ico-revine'),
+    pause: svgIcon('<rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/>'),
     more: svgIcon('<circle cx="5" cy="12" r="1.9" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.9" fill="currentColor" stroke="none"/>' +
       '<circle cx="19" cy="12" r="1.9" fill="currentColor" stroke="none"/>'),
     // speaker: body + either an X (muted) or two waves (sound on); both drawn, CSS shows one
@@ -5029,13 +5219,14 @@
 
   // ------------------------------------------------------------------ styles
   var CSS = [
-    'body.vn-body{margin:0;background:#e6e9e8;overflow-x:hidden;}',
-    '.vn-root{--vn-green:#00BF8F;--vn-green-d:#00a27a;--vn-ink:#1e2422;--vn-gray:#6f7674;--vn-soft:#f0f2f1;--vn-line:#e4e8e6;',
+    'html{background:#e6e9e8;}',
+    'body.vn-body{margin:0;background:transparent;overflow-x:hidden;}',
+    '.vn-root{--vn-green:#00BF8F;--vn-green-d:#00a27a;--vn-green-t:#00875F;--vn-ink:#1e2422;--vn-gray:#6f7674;--vn-soft:#f0f2f1;--vn-line:#e4e8e6;',
     "  font-family:'Source Sans 3',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;",
     '  color:var(--vn-ink);-webkit-text-size-adjust:100%;text-size-adjust:100%;width:100%;}',
     ':where(.vn-root) *,:where(.vn-root) *::before,:where(.vn-root) *::after{box-sizing:border-box;}',
     ':where(.vn-root) button{font:inherit;color:inherit;margin:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}',
-    '.vn-root button:focus-visible{outline:2px solid var(--vn-green);outline-offset:2px;}',
+    '.vn-root button:focus-visible{outline:2px solid var(--vn-green-t);outline-offset:2px;}',
     '.vn-sr{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}',
     '.vn-ico{width:24px;height:24px;display:block;flex:none;}',
     '.vn-app{width:100%;background:#fff;}',
@@ -5045,7 +5236,7 @@
     '  box-shadow:0 1px 0 rgba(0,0,0,.08),0 2px 6px rgba(0,0,0,.08);}',
     '.vn-bar-in{display:contents;}',
     '.vn-bar-ico{width:44px;height:50px;display:flex;align-items:center;justify-content:center;opacity:.97;}',
-    ".vn-logo{font-family:'Pacifico',cursive;font-size:27px;line-height:50px;height:50px;color:#fff;letter-spacing:.2px;",
+    ".vn-logo{font-family:'Pacifico','Snell Roundhand','Segoe Script','Brush Script MT',cursive;font-size:27px;line-height:50px;height:50px;color:#fff;letter-spacing:.2px;",
     '  transform:translateY(-1px);user-select:none;-webkit-user-select:none;text-shadow:0 1px 0 rgba(0,0,0,.06);}',
     // post header
     '.vn-post{background:#fff;}',
@@ -5064,7 +5255,7 @@
     '.vn-sound{position:absolute;top:10px;left:10px;z-index:3;display:flex;align-items:center;height:36px;padding:0 8px;border:0;border-radius:18px;',
     '  background:rgba(6,8,10,.68);color:#fff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.28);}',
     '.vn-sound .vn-ico{width:20px;height:20px;}',
-    '.vn-sound:focus-visible{outline:2px solid #fff;outline-offset:2px;}',
+    '.vn-root .vn-sound:focus-visible{outline:2px solid #fff;outline-offset:2px;box-shadow:0 0 0 5px rgba(0,0,0,.6);}',
     '.vn-sound-label{font-weight:600;font-size:13.5px;letter-spacing:.1px;white-space:nowrap;overflow:hidden;max-width:110px;margin-left:6px;',
     '  transition:max-width .35s ease,margin .35s ease,opacity .25s ease;}',
     '.vn-sound.vn-compact .vn-sound-label{max-width:0;margin-left:0;opacity:0;}',
@@ -5074,6 +5265,10 @@
     '.vn-pop{position:absolute;left:50%;top:50%;z-index:2;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;background:rgba(8,10,14,.55);',
     '  color:#fff;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;}',
     '.vn-pop .vn-ico{width:38px;height:38px;}',
+    '.vn-paused-badge{position:absolute;top:10px;right:10px;z-index:3;display:none;align-items:center;gap:5px;height:28px;padding:0 10px 0 8px;',
+    '  border-radius:14px;background:rgba(6,8,10,.68);color:#fff;font-weight:600;font-size:13px;pointer-events:none;}',
+    '.vn-paused-badge .vn-ico{width:14px;height:14px;}',
+    '.vn-paused .vn-paused-badge{display:flex;}',
     '.vn-pop.vn-go{animation:vn-pop .8s ease-out both;}',
     // loop counter
     '.vn-loops{display:flex;align-items:center;gap:6px;padding:11px max(14px,env(safe-area-inset-right,0px)) 0 max(14px,env(safe-area-inset-left,0px));',
@@ -5112,22 +5307,36 @@
     // caption + comments
     '.vn-caption{margin:0;padding:9px max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));font-size:16px;line-height:1.38;',
     '  overflow-wrap:anywhere;}',
-    '.vn-tag{color:var(--vn-green);font-weight:600;}',
+    '.vn-tag{color:var(--vn-green-t);font-weight:600;}',
     '.vn-viewall{display:block;border:0;background:none;padding:6px max(16px,env(safe-area-inset-right,0px)) 14px max(16px,env(safe-area-inset-left,0px));',
     '  color:var(--vn-gray);font-size:14.5px;cursor:pointer;text-align:left;}',
-    '.vn-foot{margin:0;text-align:center;color:#858b89;font-size:12px;line-height:1.4;padding:14px 16px calc(18px + env(safe-area-inset-bottom,0px));}',
+    '.vn-root .vn-viewall:focus-visible{outline-offset:-3px;border-radius:8px;}',
+    '.vn-foot{margin:0;text-align:center;color:#5f6664;font-size:12px;line-height:1.4;padding:14px 16px calc(18px + env(safe-area-inset-bottom,0px));}',
     '.vn-toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:50;transform:translate(-50%,12px);width:max-content;max-width:calc(100vw - 32px);',
     '  padding:10px 16px;border-radius:20px;background:rgba(20,24,23,.92);color:#fff;font-size:14.5px;font-weight:600;text-align:center;',
     '  opacity:0;pointer-events:none;transition:opacity .2s ease,transform .25s ease;}',
     '.vn-toast.vn-on{opacity:1;transform:translate(-50%,0);}',
     // desktop: centered phone-width column on a light gray page
     '@media (min-width:540px){',
-    '  body.vn-body{background:#e3e7e5;}',
+    '  html{background:#e3e7e5;}',
     '  .vn-root{padding:20px 0 0;}',
-    '  .vn-app{width:min(480px,max(360px,calc(100vh - 336px)));margin:0 auto;border-radius:16px;overflow:hidden;',
+    '  .vn-app{width:min(600px,max(360px,calc(100vh - 340px)));margin:0 auto;border-radius:16px;overflow:hidden;',
     '    box-shadow:0 18px 50px rgba(20,40,32,.16),0 2px 8px rgba(20,40,32,.08);}',
     '  .vn-bar{position:relative;}',
     '  .vn-foot{padding-top:12px;}',
+    '}',
+    // short landscape (phone on its side): a narrower column so the whole square fits; the date gives way to the name
+    '@media (min-width:540px) and (max-height:540px){',
+    '  .vn-root{padding-top:6px;}',
+    '  .vn-app{width:max(240px,calc(100vh - 140px));}',
+    '  .vn-date{display:none;}',
+    '  .vn-loc span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+    '}',
+    '@media (max-width:359px){',
+    '  .vn-actions{gap:5px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(6px,env(safe-area-inset-right,0px));}',
+    '  .vn-act{padding:0 10px 0 8px;gap:4px;}',
+    '  .vn-head{gap:9px;}',
+    '  .vn-date{font-size:12.5px;}',
     '}',
     '@keyframes vn-up{from{transform:translateY(100%);}to{transform:none;}}',
     '@keyframes vn-down{from{transform:translateY(-100%);}to{transform:none;}}',
@@ -5194,6 +5403,7 @@
     revined: false,
     toastTimer: 0,
     styled: false,
+    folded: false,
   };
 
   function audio() { return (LB.mod && LB.mod.audio) || null; }
@@ -5218,7 +5428,7 @@
     e.root.classList.toggle('vn-unmuted', !m);
     e.sound.setAttribute('aria-pressed', m ? 'false' : 'true');
     e.sound.title = m ? 'Tap for sound' : 'Mute';
-    if (!m) e.sound.classList.add('vn-compact');
+    if (!m) fold();
   }
 
   function toggleSound() {
@@ -5227,8 +5437,31 @@
     var a = audio();
     if (a && a.setMuted) {
       try { a.setMuted(m); } catch (err) { if (window.console) console.warn('[ui] audio.setMuted failed', err); }
+      if (a.isMuted) { try { applyMuted(!!a.isMuted()); } catch (err) { /* keep the requested state */ } }
     }
     replay(S.els.pop, 'vn-go');
+  }
+
+  // fold the "Tap for sound" label into the icon (once)
+  function fold() {
+    if (S.folded || !S.els) return;
+    S.folded = true;
+    S.els.sound.classList.add('vn-compact');
+  }
+
+  // WCAG 2.2.2: a way to stop the endless loop. The clock owns pause/play; audio stops scheduling while paused.
+  function isPaused() { return !!(LB.clock && LB.clock.paused); }
+  function setPaused(p) {
+    if (!LB.clock) return;
+    if (p) LB.clock.pause(); else if (LB.play) LB.play(); else LB.clock.play();
+    syncPaused();
+    toast(p ? 'Loop paused' : 'Loop playing');
+  }
+  function syncPaused() {
+    var e = S.els, p = isPaused();
+    if (!e) return;
+    e.root.classList.toggle('vn-paused', p);
+    e.pauseItem.textContent = p ? 'Play loop' : 'Pause loop';
   }
 
   function toast(msg) {
@@ -5263,6 +5496,7 @@
 
   function setMenu(open, focusFirst) {
     var e = S.els;
+    if (open) syncPaused();
     e.menu.hidden = !open;
     e.more.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open && focusFirst) e.menu.querySelector('button').focus();
@@ -5336,6 +5570,7 @@
     media.appendChild(sound);
     var pop = h('div', 'vn-pop', ICON.speaker, { 'aria-hidden': 'true' });
     media.appendChild(pop);
+    media.appendChild(h('div', 'vn-paused-badge', ICON.pause + '<span>Paused</span>', { 'aria-hidden': 'true' }));
     post.appendChild(media);
 
     // loop counter
@@ -5351,10 +5586,12 @@
       { type: 'button', 'aria-label': 'Comments, ' + fmt(POST.comments) });
     var revine = h('button', 'vn-act vn-revine', ICON.revine + '<span class="vn-num" aria-hidden="true"></span>',
       { type: 'button', 'aria-pressed': 'false' });
-    var more = h('button', 'vn-more', ICON.more, { type: 'button', 'aria-label': 'More options', 'aria-haspopup': 'true', 'aria-expanded': 'false' });
-    var menu = h('div', 'vn-menu', null, { role: 'group', 'aria-label': 'More options' });
+    var menuId = LB.uid('vn-menu');
+    var more = h('button', 'vn-more', ICON.more, { type: 'button', 'aria-label': 'More options', 'aria-controls': menuId, 'aria-expanded': 'false' });
+    var menu = h('div', 'vn-menu', null, { id: menuId, role: 'group', 'aria-label': 'More options' });
     menu.hidden = true;
-    menu.innerHTML = '<button type="button" data-act="copy">Copy link</button>' +
+    menu.innerHTML = '<button type="button" data-act="pause">Pause loop</button>' +
+      '<button type="button" data-act="copy">Copy link</button>' +
       '<button type="button" data-act="report">Report this bonk</button>' +
       '<button type="button" data-act="close">Cancel</button>' +
       '<div class="vn-menu-note">Fan-made parody for friends. Not affiliated with Vine.</div>';
@@ -5378,6 +5615,7 @@
       like: like, likeIcon: like.querySelector('.vn-ico-heart'), likeNum: like.querySelector('.vn-num'), burst: like.querySelector('.vn-burst'),
       revine: revine, revineIcon: revine.querySelector('.vn-ico-revine'), revineNum: revine.querySelector('.vn-num'),
       commentNum: comment.querySelector('.vn-num'), more: more, menu: menu, toast: toastEl,
+      pauseItem: menu.querySelector('[data-act="pause"]'),
     };
 
     // initial values
@@ -5395,10 +5633,15 @@
     var startMuted = true;
     if (a && a.isMuted) { try { startMuted = !!a.isMuted(); } catch (err) { startMuted = true; } }
     applyMuted(startMuted);
-    if (startMuted) sound.classList.remove('vn-compact');
+    // audio can fall back to muted on its own (iOS interruption, context lost): mirror it so the next tap unmutes
+    if (a && a.onMutedChange) a.onMutedChange(function (m) { if (S.els && m !== S.muted) applyMuted(m); });
 
-    // events: any tap on the video (the speaker button included) toggles sound
-    media.addEventListener('click', toggleSound);
+    // events: any tap on the video (the speaker button included) toggles sound. A tap that only dismisses the open
+    // '...' menu does not (the document handler below closes the menu).
+    media.addEventListener('click', function () {
+      if (!menu.hidden) return;
+      toggleSound();
+    });
     like.addEventListener('click', function () { setLiked(!S.liked); });
     revine.addEventListener('click', function () { setRevined(!S.revined); });
     var sealed = function () { toast(fmt(POST.comments) + ' comments sealed by court order'); };
@@ -5415,19 +5658,31 @@
       var act = b.getAttribute('data-act');
       setMenu(false);
       more.focus();
-      if (act === 'copy') copyLink();
+      if (act === 'pause') setPaused(!isPaused());
+      else if (act === 'copy') copyLink();
       else if (act === 'report') toast('Report reviewed: CASE DISMISSED');
     });
     document.addEventListener('click', function () { if (!menu.hidden) setMenu(false); });
+    // Tab out of the open menu closes it (a null relatedTarget is a mouse click; the click handlers own that case)
+    menu.addEventListener('focusout', function (ev) {
+      var to = ev.relatedTarget;
+      if (to && !menu.contains(to) && to !== more) setMenu(false);
+    });
     document.addEventListener('keydown', function (ev) {
-      if (ev.key === 'Escape' && !menu.hidden) { setMenu(false); more.focus(); }
+      if (ev.key === 'Escape' && !menu.hidden) { setMenu(false); more.focus(); return; }
+      // 'k' toggles the loop (video player convention), unless typing or using a modifier
+      if ((ev.key === 'k' || ev.key === 'K') && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
+        var tg = ev.target && ev.target.tagName;
+        if (tg === 'INPUT' || tg === 'TEXTAREA' || (ev.target && ev.target.isContentEditable)) return;
+        setPaused(!isPaused());
+      }
     });
 
     // loop counter: +1 on every wrap of the loop clock, with an odometer tick
     if (LB.clock && LB.clock.onLoop) LB.clock.onLoop(function (n) {
       setLoops(n, true);
       // after the first full play the "Tap for sound" label folds into the speaker icon
-      sound.classList.add('vn-compact');
+      fold();
     });
 
     return video;
@@ -5439,6 +5694,7 @@
     update: function (t, loops, hints) {
       if (!S.els) return;
       if (typeof loops === 'number' && loops !== S.shownLoops) setLoops(loops, loops === S.shownLoops + 1);
+      if (!S.folded && (loops > 0 || t >= 4.0)) fold();
     },
     // QA helpers (not part of the contract surface used by other modules)
     _state: function () { return { loops: POST.loops + S.shownLoops, muted: S.muted, liked: S.liked, revined: S.revined }; },
@@ -5491,10 +5747,10 @@
   function C(x, y, zoom, rot) { return { x: x, y: y, zoom: zoom, rot: rot }; }
   var SHOT = {
     photo: C(500, 500, 1, 0),
-    // Ceremonial push: (485,430) -> (485,385). The bonk card sits at screen (560,220), 16% tall; at y 430 it covered the
-    // Friar's fresh bump (screen y 273). At y 385 the bump lands at screen y 325, just under the card, and the push
-    // still moves in on the three faces (mitre top stays in frame at screen y 149).
-    push: C(485, 385, 1.15, 0),
+    // Ceremonial push: (485,430) z1.15 -> (458,362) z1.4, so the beat-1 punchline (bump, stars, askew glasses, unchanged
+    // face) reads on a phone: the Friar's head is about 58 px tall at 360 px, the King's whole face stays in frame and the
+    // mitre top sits at screen y 105. The bonk card (fx) moves up to screen (582,162) to clear the lifted knob (screen y 287).
+    push: C(458, 362, 1.4, 0),
     // Dead air: x 500 -> 490 so about HALF the King's face sits on the left edge (left edge x 323; his K_HIDE face centre
     // is about x 313..333). The billboard's lower part stays cropped by the top edge right above the bump.
     deadAir: C(490, 340, 3.0, 0),
@@ -5524,8 +5780,8 @@
       [0.48, SHOT.photo, 'linear'],                       // hold: the photo
       [1.00, SHOT.push, 'inOutSine'],                     // slow ceremonial push
       [1.09, SHOT.push, 'linear'],                        // held through the impact frame
-      [1.09, C(485, 385, 1.15, 2)],                       // impact released: roll kicks with the shake
-      [1.20, C(485, 385, 1.15, -1.5), 'outCubic'],
+      [1.09, C(458, 362, 1.4, 2)],                        // impact released: roll kicks with the shake
+      [1.20, C(458, 362, 1.4, -1.5), 'outCubic'],
       [1.40, SHOT.push, 'outCubic'],
       [1.40, SHOT.deadAir],                               // CUT: Friar close-up
       [2.02, SHOT.deadAir, 'linear'],
@@ -5534,7 +5790,7 @@
       [2.70, SHOT.lawsuit],                               // CUT: lawsuit ECU
       [3.42, SHOT.lawsuitEnd, 'linear'],
       [3.42, SHOT.socks],                                 // CUT: socks in slides
-      [3.56, SHOT.socks, 'linear'],
+      [3.62, SHOT.socks, 'linear'],                       // hold 0.20 s so the socks gag parses after the cut (T.tilt)
       [3.80, SHOT.healer, 'inOutCubic'],                  // tilt straight up his body
       [4.02, SHOT.healerEnd, 'linear'],                   // micro push while the mitre outgrows the frame
       [pullEnd, SHOT.twoShot, rm ? 'inOutSine' : 'outCubic'], // fast pull-back to the two-shot
@@ -5553,9 +5809,9 @@
     [1.09, 10],                 // bonk shake, decaying 10 -> 5 -> 0
     [1.20, 5, 'outCubic'],
     [1.40, 0, 'outCubic'],
-    [4.92, 0, 'linear'],
-    [4.92, 6],                  // hanko stamp shake 6 -> 0
-    [5.07, 0, 'outQuad'],
+    [4.98, 0, 'linear'],
+    [4.98, 6],                  // hanko stamp shake 6 -> 0, starting on the stamp's visible contact (fx lands it at 4.98)
+    [5.13, 0, 'outQuad'],
     [6.00, 0, 'linear'],
   ]);
   function camera(t) {
@@ -5599,10 +5855,15 @@
     raise: 0.48, bishopTrack: 0.52, bokeh: 0.50,
     drop: 0.95, contact: 0.99, impact: 1.02, impactEnd: 1.09,
     cut2: 1.40, slide: 1.56, cut3: 2.02, crashEnd: 2.10, cut4: 2.70, opaque: 2.74, arcCard: 2.78, smirk: 2.80,
-    cut5: 3.42, tilt: 3.56, face5: 3.80, beat6: 4.02, cast: 4.10, heal: 4.38, oneUp: 4.60,
-    cut7: 4.86, stamp: 4.92, sad: 4.94, slump: 4.96, gloom: 5.00, cut8: 5.46, flash: 5.54, sweatIn: 5.72,
+    cut5: 3.42, tilt: 3.62, face5: 3.80, mitreGrow: 3.86, beat6: 4.02, cast: 4.10, heal: 4.38, oneUp: 4.60,
+    cut7: 4.86, stamp: 4.92, sad: 5.04, slump: 5.08, gloom: 5.08, cut8: 5.46, flash: 5.54, sweatIn: 5.72,
   };
+  // Case Dismissed gets a take: smug close-up 4.86-5.04, the hanko visibly lands at 4.98 (fx: 0.06 s drop from 4.92), then
+  // his face falls at 5.04, the slump runs 5.08-5.41 and the gloom fades in 5.08-5.20, leaving a sad hold before the cut.
   var CONTACT = { x: 500, y: 258 };                    // knob on the Friar's crown (STORYBOARD beat 1)
+  // Where the full-size bump sits in beat 6 (the Friar's head does not move there). Heal sparkles and the pop puff aim at
+  // this fixed point: the 'friar.bump' anchor tracks the shrinking bump and would hop at 4.30 and 4.38.
+  var BUMP_AT = { x: 495.5, y: 246 };
   var FOCUS_BOX = [230, 170, 770, 440];                // screen box around the three faces in the wide shot
 
   // King ceremonial raise: 5 drawings on twos from 0.48 reach the top at 0.813 (with the last celesta note at 0.84); that
@@ -5630,8 +5891,10 @@
     } else if (t < T.cut2) {
       s.pose = 'bonk';
       s.raise = 1;
-      // the drop on ones: a smear drawing mid-fall, then the contact drawing (both with ghost scepters), then held
-      s.drop = held(t, [[T.drop, 0.5], [T.contact, 1]], 0);
+      // the drop on ones: a smear drawing mid-fall, then the contact drawing (both with ghost scepters), held through the
+      // impact and the head squash; then the inflating bump pushes the knob back up until it rests ON the bump (drop 0:
+      // knob bottom y 234, bump top y 236), so the shaft clears his lens and the bump is not hidden behind the prop.
+      s.drop = held(t, [[T.drop, 0.5], [T.contact, 1], [1.13, 0.25], [1.18, 0]], 0);
       s.smear = t < T.impact ? 1 : 0;
       s.headTilt = 2;
       applyFace(s, t < T.impactEnd ? 'k_solemn' : 'k_oops');
@@ -5674,10 +5937,11 @@
       s.stars = 1;
       s.starSpin = starSpin(t);
     }
-    // Dead air: only the pupils slide toward the billboard, 4 drawings on twos (1.56 .. 1.81), then pinned.
+    // Dead air: only the pupils slide toward the billboard, 4 drawings on twos (1.56 .. 1.81), then pinned. The face kit
+    // keeps upward travel small under the deadpan lid, so the slide is carried by a full sideways gazeX.
     if (inWin(t, T.slide, T.cut4)) {
       var g = drawings(t, T.slide, 4, 12, 'inOutSine');
-      s.gazeX = 0.7 * g; s.gazeY = -1 * g;
+      s.gazeX = 1.0 * g; s.gazeY = -1 * g;
     }
     // F_STEEPLE: clasped hands snap up under the beard in 2 drawings on ones.
     if (t >= T.cut4) s.steeple = drawings(t, T.cut4, 2, 24, 'linear');
@@ -5687,7 +5951,7 @@
     if (inWin(t, T.opaque, T.cut5)) s.shadowFace = held(t, [[T.opaque, 0.45], [T.smirk, 0.8]], 0);
     if (inWin(t, T.heal, T.sad)) applyFace(s, 'f_smug');      // healed, has not realized yet
     if (t >= T.sad) applyFace(s, 'f_disappointed');
-    // F_SLUMP: hands sink out of frame, shoulders drop a notch, head dips (5 drawings on twos, 4.96 .. 5.29).
+    // F_SLUMP: hands sink out of frame, shoulders drop a notch, head dips (5 drawings on twos, 5.08 .. 5.41).
     if (t >= T.slump) {
       var k = drawings(t, T.slump, 5, 12, 'inOutSine');
       s.steeple = 1 - k;
@@ -5713,9 +5977,11 @@
       applyFace(s, 'b_hero');
       s.mustacheTwitch = twitch(t, 3.82);
     }
-    if (inWin(t, T.face5, T.cut8)) {
-      // B_MITRE_STRETCH: 1.0 -> 1.4 outBack on ones, anchored at the headband; held until the 5.46 cut.
-      s.mitreStretch = 1 + 0.4 * drawings(t, T.face5, 6, 24, 'outBack');
+    if (inWin(t, T.mitreGrow, T.cut8)) {
+      // B_MITRE_STRETCH: 1.0 -> 1.4 anchored at the headband, held until the 5.46 cut. It starts 0.06 s after the hero landing
+      // (so the landing, glint and CLASS card read first) and climbs on ones (5 drawings, 3.86 .. 4.03) with an even ease,
+      // so the tip visibly rises out of the top edge during the micro push instead of popping out in 2 frames.
+      s.mitreStretch = 1 + 0.4 * drawings(t, T.mitreGrow, 5, 24, 'inOutSine');
     }
     if (inWin(t, T.cast, T.cut7)) {
       // B_CAST: arm out of the cape at shoulder height toward the Friar (2 drawings on twos), green glow ring (smooth).
@@ -5776,7 +6042,8 @@
       f.glints.push({ at: 'king.knob', k: glintK(t, T.glintA, T.glintPeak, T.glintB), rot: 45 * prog(t, T.glintA, T.glintB), size: 50 });
     }
     if (inWin(t, T.opaque, 2.92)) {
-      f.glints.push({ at: 'friar.lensR', k: glintK(t, T.opaque, 2.78, 2.92), rot: 45 * prog(t, T.opaque, 2.92), size: 34 });
+      // size 28: still the big anime lens glint at phone size, but the opaque lens and the brow stay readable around it
+      f.glints.push({ at: 'friar.lensR', k: glintK(t, T.opaque, 2.78, 2.92), rot: 45 * prog(t, T.opaque, 2.92), size: 28 });
     }
     if (inWin(t, T.face5, 3.95)) {
       f.glints.push({ at: 'bishop.mustache', k: glintK(t, T.face5, 3.84, 3.95), rot: 45 * prog(t, T.face5, 3.95), size: 30 });
@@ -5792,10 +6059,10 @@
     if (inWin(t, T.cut3, 2.16)) {
       f.speedLines = { mode: 'radial', k: fade(t, T.cut3, 2.035) * (1 - fade(t, 2.10, 2.16)), seed: seed, at: { x: 515, y: 196 } };
     } else if (inWin(t, T.tilt, T.face5)) {
-      f.speedLines = { mode: 'vertical', k: fade(t, T.tilt, 3.59) * (1 - fade(t, 3.74, T.face5)), seed: seed, at: null };
+      f.speedLines = { mode: 'vertical', k: fade(t, T.tilt, 3.65) * (1 - fade(t, 3.74, T.face5)), seed: seed, at: null };
     }
     // 6. pop puff where the bump was
-    if (inWin(t, T.heal, 4.50)) f.puff = { p: prog(t, T.heal, 4.50), at: 'friar.bump' };
+    if (inWin(t, T.heal, 4.50)) f.puff = { p: prog(t, T.heal, 4.50), at: BUMP_AT };
     // 11. bishounen bubbles drifting up from the slides
     if (inWin(t, T.cut5, 3.75)) {
       f.bishounen = { k: fade(t, T.cut5, 3.46) * (1 - fade(t, 3.64, 3.75)), p: prog(t, T.cut5, 3.75), at: 'bishop.feet' };
@@ -5805,11 +6072,11 @@
       f.archesFlare = { k: t < 4.30 ? E.inOutSine(prog(t, 4.12, 4.30)) : 1 - E.outQuad(prog(t, 4.30, 4.40)) };
     }
     // 16. green heal sparkles rain onto the bump
-    if (inWin(t, 4.20, 4.44)) f.heal = { p: prog(t, 4.20, 4.44), at: 'friar.bump' };
+    if (inWin(t, 4.20, 4.44)) f.heal = { p: prog(t, 4.20, 4.44), at: BUMP_AT };
     // 18. the King's guilty whistle
     if (inWin(t, T.cast, T.cut7)) f.notes = { p: prog(t, T.cast, T.cut7), at: 'king.mouth' };
     // 21. gloom lines over the Friar's head
-    if (inWin(t, T.gloom, T.cut8)) f.gloom = { k: fade(t, T.gloom, 5.12), at: 'friar.head' };
+    if (inWin(t, T.gloom, T.cut8)) f.gloom = { k: fade(t, T.gloom, 5.20), at: 'friar.head' };
     // 22. phone focus square snaps onto the faces
     if (inWin(t, T.cut8, 5.68)) f.focus = { k: 1 - fade(t, 5.60, 5.68), p: prog(t, T.cut8, T.flash), box: FOCUS_BOX.slice() };
     // 23. shutter flash: 0.7 for 2 frames at 5.54, gone by 5.66

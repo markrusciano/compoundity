@@ -55,7 +55,7 @@
   LB.opacity = function (node, k) { node.setAttribute('opacity', r4(LB.clamp(k, 0, 1))); };
 
   // ---------------------------------------------------------------- math
-  LB.clamp = function (v, a, b) { return v < a ? a : v > b ? b : v; };
+  LB.clamp = function (v, a, b) { return v < a ? a : v > b ? b : v === v ? v : a; }; // NaN -> a
   LB.lerp = function (a, b, k) { return a + (b - a) * k; };
   LB.invLerp = function (a, b, v) { return a === b ? 0 : (v - a) / (b - a); };
   LB.remap = function (v, a, b, c, d) { return LB.lerp(c, d, LB.clamp(LB.invLerp(a, b, v), 0, 1)); };
@@ -214,6 +214,9 @@
       return s;
     };
     var world = mk('lb-world');
+    // the world svg is its own compositor layer: slow camera pushes scale it there (see LB.applyCamera)
+    world.style.transformOrigin = '50% 50%';
+    world.style.willChange = 'transform';
     var camera = LB.g(world, { class: 'lb-camera' });
     var overlay = mk('lb-overlay');
     var stage = {
@@ -236,15 +239,27 @@
     return stage;
   };
   LB.reducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  // Zoom is split in two: the SVG camera uses the zoom rounded down to a step of a 1.05 ladder (z0), and the remaining
+  // factor s = zoom / z0 (1 .. 1.05) is a CSS scale of the world svg about its centre, done by the compositor. During a
+  // slow push with a fixed centre (billboard, lawsuit, two-shot) the SVG transform string then stays the same for many
+  // frames, so the world is not re-laid out and re-rasterized every frame (that held those beats at 30 fps on a mid
+  // phone); only the parts that animate repaint. The split is a pure function of the camera (the ladder is fixed), and
+  // screen positions are exactly those of a single SVG zoom (shake offsets are divided by s to compensate).
+  var ZSTEP = Math.log(1.05);
   LB.applyCamera = function (stage, cam, t) {
     cam = cam || {};
     var zoom = cam.zoom || 1, x = cam.x != null ? cam.x : 500, y = cam.y != null ? cam.y : 500;
     var sh = LB.shake(t, (cam.shake || 0) * (LB.reducedMotion ? 0.4 : 1), cam.shakeFreq || 24, 3);
     var rot = (cam.rot || 0) + sh.rot;
     stage.cam = { x: x, y: y, zoom: zoom, rot: rot, sx: 500 + sh.x, sy: 500 + sh.y };
-    stage.camera.setAttribute('transform',
-      'translate(' + r4(500 + sh.x) + ' ' + r4(500 + sh.y) + ') rotate(' + r4(rot) + ') scale(' + r4(zoom) + ') translate(' + r4(-x) + ' ' + r4(-y) + ')');
-    stage.world.style.filter = cam.filter || '';
+    var z0 = Math.exp(Math.floor(Math.log(zoom) / ZSTEP + 1e-6) * ZSTEP), s = zoom / z0;
+    if (s < 1.0005) { s = 1; z0 = zoom; }
+    var tr = 'translate(' + r4(500 + sh.x / s) + ' ' + r4(500 + sh.y / s) + ') rotate(' + r4(rot) + ') scale(' + r4(z0) + ') translate(' + r4(-x) + ' ' + r4(-y) + ')';
+    var css = s === 1 ? '' : 'scale(' + r4(s) + ')', st = stage.__camCache || (stage.__camCache = {});
+    if (st.tr !== tr) { st.tr = tr; stage.camera.setAttribute('transform', tr); }
+    if (st.css !== css) { st.css = css; stage.world.style.transform = css; }
+    var flt = cam.filter || '';
+    if (st.flt !== flt) { st.flt = flt; stage.world.style.filter = flt; }
   };
   // world point -> screen point (overlay viewBox units, 0..1000) for the camera applied this frame
   LB.worldToScreen = function (stage, p) {
@@ -255,18 +270,63 @@
 
   // Silhouette mode for impact frames: LB.silhouette(root, on, color) paints every shape in `root` one flat color.
   // Mark decorative bits that should vanish in silhouette (highlights, glows) with data-sil="hide".
+  // It is an SVG filter (a color matrix: rgb = the color, alpha kept) set on the root, not a `.lb-sil *` paint override:
+  // that forced a style recalc and layout-tree rebuild over about 1000 elements, so on a mid phone the 70 ms impact
+  // frame showed for one frame and the next drawings were dropped. The hide rule only touches [data-sil] elements, and
+  // visibility (not display) needs no layout. The DOM is only touched when the state changes.
   (function injectCss() {
-    var css = '.lb-sil, .lb-sil * { fill: var(--lb-sil, #000) !important; stroke: var(--lb-sil, #000) !important; }' +
-      '.lb-sil [fill="none"] { fill: none !important; }' +
-      '.lb-sil [stroke="none"] { stroke: none !important; }' +
-      '.lb-sil [data-sil="hide"] { display: none !important; }';
+    // (a nested clone sits right after its outer root and vanishes with it when the rig hides the root: hidden: true)
+    var css = '.lb-sil [data-sil="hide"] { visibility: hidden !important; }' +
+      '[style*="display: none"] + [data-lb-silclone], [style*="display:none"] + [data-lb-silclone] { display: none !important; }';
     var s = document.createElement('style');
     s.textContent = css;
     (document.head || document.documentElement).appendChild(s);
   })();
+  var silFilter = {}; // color -> filter id (per document; the world svg's defs)
+  function silFilterId(root, color) {
+    var svg = root.ownerSVGElement || root;
+    var key = color + '|' + (svg.__lbSvgId || (svg.__lbSvgId = LB.uid('lbsvg')));
+    if (silFilter[key]) return silFilter[key];
+    var id = LB.uid('lbsil');
+    var f = LB.el('filter', { id: id, x: '-5%', y: '-5%', width: '110%', height: '110%', 'color-interpolation-filters': 'sRGB' }, LB.defs(svg));
+    // one primitive: rgb = the color, alpha kept
+    var c = hex(color.charAt(0) === '#' ? color : '#000').map(function (v) { return r4(v / 255); });
+    LB.el('feColorMatrix', { type: 'matrix', values: '0 0 0 0 ' + c[0] + ' 0 0 0 0 ' + c[1] + ' 0 0 0 0 ' + c[2] + ' 0 0 0 1 0' }, f);
+    return (silFilter[key] = id);
+  }
+  // A nested call (a part inside a silhouetted root, e.g. the King's scepter in gold over his black figure; call the root
+  // first) cannot escape the root's filter, so it shows a recolored live <use> clone of the part right above the root.
+  function silOuter(node) {
+    for (var p = node.parentNode; p && p.nodeType === 1; p = p.parentNode) if (p.__lbSil) return p;
+    return null;
+  }
   LB.silhouette = function (root, on, color) {
-    if (on) { root.classList.add('lb-sil'); root.style.setProperty('--lb-sil', color || '#000'); }
-    else root.classList.remove('lb-sil');
+    var key = on ? (color || '#000') : '';
+    var outer = on ? silOuter(root) : null;
+    if (root.__lbSil === key && !outer) return;
+    var was = root.__lbSil;
+    root.__lbSil = key;
+    if (outer) {
+      var u = root.__lbSilUse;
+      if (!u) {
+        if (!root.id) root.id = LB.uid('lbsilsrc');
+        u = root.__lbSilUse = LB.el('use', { 'data-lb-silclone': '1' });
+      }
+      if (u.parentNode !== outer.parentNode || u.previousSibling !== outer) outer.parentNode.insertBefore(u, outer.nextSibling);
+      if (was !== key || !u.hasAttribute('href')) { u.setAttribute('filter', 'url(#' + silFilterId(outer, key) + ')'); u.setAttribute('href', '#' + root.id); }
+      (outer.__lbSilClones || (outer.__lbSilClones = [])).indexOf(u) < 0 && outer.__lbSilClones.push(u);
+      // place the clone in the outer root's parent space (only while on: a few frames per loop)
+      var a = outer.parentNode.getCTM(), b = root.parentNode.getCTM();
+      if (a && b) {
+        var m = a.inverse().multiply(b);
+        u.setAttribute('transform', 'matrix(' + [m.a, m.b, m.c, m.d, m.e, m.f].map(r4).join(' ') + ')');
+      }
+      return;
+    }
+    if (root.__lbSilUse) root.__lbSilUse.removeAttribute('href'); // no reference while off: no clone upkeep
+    if (!on && root.__lbSilClones) root.__lbSilClones.forEach(function (c) { c.removeAttribute('href'); });
+    if (on) { root.setAttribute('filter', 'url(#' + silFilterId(root, key) + ')'); root.classList.add('lb-sil'); }
+    else { root.removeAttribute('filter'); root.classList.remove('lb-sil'); }
   };
 
   // resolve a position given as {x, y} (world) or as an anchor ref string 'who.name' (e.g. 'friar.lensR')

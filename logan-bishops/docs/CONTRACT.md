@@ -8,9 +8,9 @@ This file is the single source of truth for how modules fit together. If somethi
 
 | file | owner | registers |
 |---|---|---|
-| `core.js` | done (do not edit) | `window.LB` helpers, clock, stage, camera |
-| `main.js` | done (do not edit) | boot + render loop |
-| `index.html` | done (do not edit, except the integrator) | page shell, Google Fonts, script order |
+| `core.js` | done | `window.LB` helpers, clock, stage, camera |
+| `main.js` | done | boot + render loop |
+| `index.html` | done | page shell, Google Fonts, script order |
 | `face.js` | face/style lead | `LB.face` shared anime face kit + `LB.style` |
 | `char-king.js` | king rigger | `LB.register('king', {create})` |
 | `char-friar.js` | friar rigger | `LB.register('friar', {create})` |
@@ -25,7 +25,7 @@ Each file is an IIFE: `(function () { 'use strict'; var LB = window.LB; ... })()
 Only touch your own file. Put scratch harness pages and renders in your own scratch folder (given in your prompt), never in `src/`.
 Every element id or gradient/filter id you create must come from `LB.uid('prefix')` (several modules share a document).
 No external assets besides the Google Fonts already linked in `index.html`:
-`Bangers`, `Dela Gothic One` (Japanese display), `M PLUS Rounded 1c` (500-900), `Mochiy Pop One`, `Pacifico` (Vine wordmark), `Source Sans 3`.
+`Bangers`, `Dela Gothic One` (Japanese display), `M PLUS Rounded 1c` (900), `Pacifico` (Vine wordmark), `Source Sans 3`.
 No bitmaps, no `<image>`, no `<foreignObject>`. Performance: target 60fps on a phone; avoid SVG filters that re-run every
 frame over the whole stage (blur on small elements is OK; prefer pre-baked gradients and opacity).
 
@@ -234,3 +234,10 @@ frameState = {
 Implements every timing in STORYBOARD (camera keyframes table, beat table, FX list times, card times). Character pose and
 expression changes step on twos (`LB.onTwos(t)`); camera, glows, sparkles and speed lines are smooth. Frame 0 and frame
 6.0 must be identical (see "Loop seam").
+
+## Revision notes (polish round)
+After the critique and fix round the source is the reference for exact values; this file describes the original plan.
+- Display fonts load as one `text=` subset (see `src/index.html`); every string drawn in them must be in that list.
+- World signage (billboard, "Peanut Day" box, the King's tee) is baked to paths by `tools/bake-text.cjs`. The world SVG has no `<text>`.
+- `LB.silhouette` is an SVG filter, not a CSS fill override. Character state fields go through a `num(v, d)` NaN guard.
+- `audio` exposes `onMutedChange` for the UI. `tools/render.cjs --full` finishes CSS transitions before each screenshot.

@@ -2,6 +2,8 @@
 (function () {
   'use strict';
   var LB = window.LB;
+  // T13: numeric state fields go through num(): anything that is not a finite number falls back to the default
+  function num(v, d) { return typeof v === 'number' && isFinite(v) ? v : d; }
 
   // ------------------------------------------------------------------ tiny affine math (SVG matrix order a b c d e f)
   function mul(m, n) {
@@ -27,13 +29,17 @@
   var SHOULDER = [664, 378];    // character's right shoulder (screen-left, the casting arm)
   var MITRE_BASE = -55;         // mitre band top at the sides (face-local): mitreStretch scales everything above it
   var MITRE_TIP = -188;
-  var WRIST0 = [604, 618], WRIST_C = [572, 452], WRIST1 = [594, 361]; // casting arm: hidden at the side -> out at shoulder height
+  // casting arm: hidden at the side -> out at shoulder height. The in-between (WRIST_C) passes beside the cape edge, clear of
+  // the Friar's robe (drawn in front of the Bishop), so the cast has a visible in-between drawing; at full cast the palm sits
+  // near (603,366) with the fingertips about 25 units short of the Friar's ear: a ranged game cast, not a touch.
+  var WRIST0 = [604, 618], WRIST_C = [626, 430], WRIST1 = [618, 368];
   var HAND_S = 1.25;            // the casting hand reads bigger (it reaches toward the camera-left)
   var MUS_Y = 31;               // mustache squash pivot (face-local)
 
   // cape front panel, screen-left half: photo pose (L0) and cast pose (L1, the arm lifts it into a wing). Same point count.
+  // L0's screen-left side hangs straight past the hip to a squarer hem corner (as in the photo), not tucked in like a balloon.
   var L0 = [[716, 351], [700, 349], [679, 352], [653, 362], [629, 376], [611, 399], [600, 440], [594, 500], [590, 570], [588, 640],
-    [592, 700], [600, 743], [618, 758], [638, 773], [656, 771], [676, 784], [700, 790], [716, 793], [719, 650], [719, 500]];
+    [588, 700], [590, 745], [596, 775], [612, 791], [638, 795], [663, 792], [690, 797], [716, 797], [719, 650], [719, 500]];
   var L1 = [[716, 351], [700, 349], [680, 351], [659, 352], [639, 350], [621, 349], [607, 348], [597, 354], [599, 372], [604, 440],
     [608, 520], [622, 610], [636, 690], [650, 740], [664, 762], [682, 780], [702, 789], [716, 793], [719, 650], [719, 500]];
   // satin fold shadows and highlight streaks on that panel (rest / cast), same point counts
@@ -68,7 +74,7 @@
     function taper(pts, w) { return F.taperD(pts, [0, w * 0.8, w, w * 0.6, 0], 5); }
     function streak(pts, w) { return F.taperD(pts, [0, w, w * 0.7, 0], 5); }
     function closedD(pts) { return F.crD(pts, true); }
-    // capsule A->B with round caps that bulge OUTWARD (sweep 1). The kit's tubeD(..., caps) bends its caps inward.
+    // capsule A->B with round caps that bulge OUTWARD (sweep 1); same shape as the kit's tubeD(..., caps).
     function capsule(A, B, wA, wB) {
       var dx = B[0] - A[0], dy = B[1] - A[1], d = Math.hypot(dx, dy) || 1, nx = -dy / d, ny = dx / d, rA = wA / 2, rB = wB / 2;
       return 'M' + pt([A[0] - nx * rA, A[1] - ny * rA]) + 'L' + pt([B[0] - nx * rB, B[1] - ny * rB]) +
@@ -106,8 +112,9 @@
       function sh(v) { return SOLE_H + 1 + ARCH * Math.sqrt(Math.max(0, 1 - Math.pow(v / wb, 2))); }
       function sFront(v) { return Pp(u1 + 2.6 * (1 - Math.pow(v / wb, 2)), v, sh(v)); }
       var frontC = sFront(0);
-      // sock leg: thick heathered wool from under the pants cuff into the slide (its end hides under the strap)
-      var Tp = o.sockTop, A = [frontC[0], frontC[1] - 15.5];
+      // sock leg: thick heathered wool from under the pants cuff into the slide. Its end sits inside the strap's footprint
+      // (projected with the foot's turn), so the strap drawn later covers the round end on a turned foot as well.
+      var Tp = o.sockTop, A = Pp(lerp(u0, u1, 0.45), 0, SOLE_H + 10);
       var dx = A[0] - Tp[0], dy = A[1] - Tp[1], dl = Math.hypot(dx, dy), nx = -dy / dl, ny = dx / dl;
       var legD = capsule(Tp, A, 33, 35);
       LB.path(g, legD, fl(P.sock));
@@ -122,6 +129,7 @@
         wr += 'M' + pt(onLeg(al, -0.95)) + 'Q' + pt(onLeg(al + 0.1, -0.2)) + ' ' + pt(onLeg(al, 0.35)) + 'Q' + pt(onLeg(al + 0.07, 0.75)) + ' ' + pt(onLeg(al + 0.03, 0.96));
       });
       LB.path(g, wr, ol(0.95, P.sockShadow));
+      LB.path(g, legD, ol(LW.inner));   // inked before the toes, which cover the leg's round end below the strap
       var rnd = LB.rng(o.seed), spL = '', spD = '';
       for (i = 0; i < 22; i++) {
         var p0 = onLeg(0.06 + rnd() * 0.9, rnd() * 1.7 - 0.85), rr = 0.45 + rnd() * 0.3;
@@ -165,7 +173,6 @@
       }
       LB.path(g, spL, fl(HEATHER_L));
       LB.path(g, spD, fl(HEATHER_D));
-      LB.path(g, legD, ol(LW.inner));
       LB.path(g, toeD, ol(LW.inner));
       // strap
       function strapD(vA, vB) {
@@ -365,26 +372,45 @@
       for (var y = my - 26; y > tip + 26; y -= 23) lozenge(0, y, 7.6 * clamp((y - tip) / 54, 0.62, 1));
       return o;
     }
-    function applyMitre(k) {
+    // All mitre path data for one stretch value. The director only ever sends a handful of stretch values (one per growth
+    // drawing), so the strings are memoized: after the first loop a stretch change costs only the setAttribute calls.
+    var mitreCache = {}, mitreCacheN = 0;
+    function mitreStrings(k) {
+      var key = k.toFixed(4), c = mitreCache[key];
+      if (c) return c;
       var fr = mp(FR, k), flt = mp(FLft, k), br = mp(BR, k), brl = mp(BRL, k);
-      var frontD = 'M' + pt(flt[0]) + F.crSeg(flt, false) + F.crSeg(fr.slice().reverse(), false) + 'Q0 -47.5 -52.5 -55Z';
-      var backD = 'M' + pt(br[0]) + F.crSeg(br, false) + 'L' + pt(brl[0]) + F.crSeg(brl, false) + 'L0 -58Z';
       var shf = mp(SHF, k);
-      var shD = 'M' + pt(shf[0]) + F.crSeg(shf, false) + 'L80 ' + n2(Ym(-220, k)) + 'L80 -46Z';
-      backC.setD(backD);
-      backTrim.setAttribute('d', F.ribbonD(br, 13));
-      frontC.setD(frontD, shD);
-      // edge trims: a band along both front edges (outer half clipped away by the panel)
-      trimP.setAttribute('d', F.ribbonD(fr, 15) + F.ribbonD(flt, 15));
-      trimSh.setAttribute('d', F.ribbonD(fr, 15, -1, 0));
-      trimLine.setAttribute('d', F.ribbonD(fr, 13, -1, -1).replace(/Z$/, '') + F.ribbonD(flt, 13, 1, 1).replace(/Z$/, ''));
       // central orphrey, narrowing toward the tip
       var oc = mp([[0, -48], [0, -100], [0, -150], [0, -198]], k);
       var ow = function (t) { return 24 - 8 * t; };
-      orph.setAttribute('d', F.ribbonD(oc, ow));
-      orphSh.setAttribute('d', F.ribbonD(oc, ow, 0.32, 1));
-      orphLine.setAttribute('d', F.ribbonD(oc, ow));
-      var o = mitreOrn(k);
+      var orphD = F.ribbonD(oc, ow);
+      c = {
+        frontD: 'M' + pt(flt[0]) + F.crSeg(flt, false) + F.crSeg(fr.slice().reverse(), false) + 'Q0 -47.5 -52.5 -55Z',
+        backD: 'M' + pt(br[0]) + F.crSeg(br, false) + 'L' + pt(brl[0]) + F.crSeg(brl, false) + 'L0 -58Z',
+        shD: 'M' + pt(shf[0]) + F.crSeg(shf, false) + 'L80 ' + n2(Ym(-220, k)) + 'L80 -46Z',
+        backTrim: F.ribbonD(br, 13),
+        // edge trims: a band along both front edges (outer half clipped away by the panel)
+        trim: F.ribbonD(fr, 15) + F.ribbonD(flt, 15),
+        trimSh: F.ribbonD(fr, 15, -1, 0),
+        trimLine: F.ribbonD(fr, 13, -1, -1).replace(/Z$/, '') + F.ribbonD(flt, 13, 1, 1).replace(/Z$/, ''),
+        orph: orphD, orphSh: F.ribbonD(oc, ow, 0.32, 1),
+        orn: mitreOrn(k),
+      };
+      if (mitreCacheN > 24) { mitreCache = {}; mitreCacheN = 0; }   // bounded, in case a caller sweeps the value smoothly
+      mitreCache[key] = c; mitreCacheN++;
+      return c;
+    }
+    function applyMitre(k) {
+      var c = mitreStrings(k), o = c.orn;
+      backC.setD(c.backD);
+      backTrim.setAttribute('d', c.backTrim);
+      frontC.setD(c.frontD, c.shD);
+      trimP.setAttribute('d', c.trim);
+      trimSh.setAttribute('d', c.trimSh);
+      trimLine.setAttribute('d', c.trimLine);
+      orph.setAttribute('d', c.orph);
+      orphSh.setAttribute('d', c.orphSh);
+      orphLine.setAttribute('d', c.orph);
       ornGold.setAttribute('d', o.gold); ornCream.setAttribute('d', o.cream); ornPetal.setAttribute('d', o.petal);
       ornDot.setAttribute('d', o.dot); ornDet.setAttribute('d', o.det); ornInk.setAttribute('d', o.ink); ornHi.setAttribute('d', o.hi);
     }
@@ -545,13 +571,13 @@
       vis(root, 'hidden', !hidden);
       if (hidden) { last.state = s; return; }
       var p = poseOf(s);
-      var x = s.x != null ? +s.x : FEET[0], y = s.y != null ? +s.y : FEET[1];
-      var sc = s.scale != null ? +s.scale : 1, sx = s.sx != null ? +s.sx : 1, sy = s.sy != null ? +s.sy : 1;
-      var ck = clamp(s.cast != null ? +s.cast : p.cast, 0, 1);
-      var lean = s.lean != null ? +s.lean : p.lean - 2 * ck;
-      var tilt = s.headTilt != null ? +s.headTilt : p.tilt;
-      var bob = (+s.bob || 0) - (+s.breathe || 0) * 1.6 * (0.5 + 0.5 * LB.loopSin(s.t || 0, 3));
-      M.root = chain(T(x, y), R(+s.rot || 0), Sc(sc * sx, sc * sy), T(-FEET[0], -FEET[1]));
+      var x = num(s.x, FEET[0]), y = num(s.y, FEET[1]);
+      var sc = num(s.scale, 1), sx = num(s.sx, 1), sy = num(s.sy, 1);
+      var ck = clamp(num(s.cast, p.cast), 0, 1);
+      var lean = num(s.lean, p.lean - 2 * ck);
+      var tilt = num(s.headTilt, p.tilt);
+      var bob = num(s.bob, 0) - num(s.breathe, 0) * 1.6 * (0.5 + 0.5 * LB.loopSin(s.t || 0, 3));
+      M.root = chain(T(x, y), R(num(s.rot, 0)), Sc(sc * sx, sc * sy), T(-FEET[0], -FEET[1]));
       M.lean = chain(T(0, bob), T(HIP[0], HIP[1]), R(lean), T(-HIP[0], -HIP[1]));
       M.head = chain(T(NECK[0], NECK[1]), R(tilt), T(0, FACE_UP));
       setT(root, 'root', M.root);
@@ -560,7 +586,7 @@
       setT(feat, 'feat', T(0, -p.pitch * 2.2));
 
       // mitre stretch (rebuilt only when it changes)
-      var mk = clamp(s.mitreStretch != null ? +s.mitreStretch : 1, 0.5, 2);
+      var mk = clamp(num(s.mitreStretch, 1), 0.5, 2);
       if (last.mk !== mk) { last.mk = mk; applyMitre(mk); }
 
       // mustache: squash-and-stretch, the two halves flick their tips up
@@ -601,7 +627,7 @@
           setT(sleeve, 'slm', slM); setT(rim, 'rimm', slM);
         }
       }
-      var gk = castOn ? clamp(+s.castGlow || 0, 0, 1) : 0;
+      var gk = castOn ? clamp(num(s.castGlow, 0), 0, 1) : 0;
       var glowOn = gk > 0.01;
       vis(glowG, 'glow', glowOn); vis(ringBack.g, 'rb', glowOn); vis(ringFront.g, 'rf', glowOn);
       if (glowOn) {
@@ -619,9 +645,8 @@
         setA(ringBack.dots, 'rbd', 'd', db || 'M0 0');
       }
 
-      // heavy lids: an upward glance would roll the irises out of sight, so the Bishop looks up with 55% of the travel
-      var gy = +s.gazeY || 0;
-      face.update(gy < 0 ? Object.assign({}, s, { gazeY: gy * 0.55 }) : s);
+      // (upward glances under the heavy lids are kept small by the face kit's gazeUp)
+      face.update(s);
       var sil = (+s.silhouette || 0) > 0.5;
       LB.silhouette(root, sil, s.silhouetteColor || '#000');
       last.p = p; last.state = s;

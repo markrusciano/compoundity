@@ -46,7 +46,7 @@
       friar: {
         skin: '#F2C9AE', skinShadow: '#DBA185', lip: '#D88A82',
         hair: '#5A4030', hairShadow: '#3B291E', hairShine: '#7E5E48',
-        beard: '#5A4030', beardShadow: '#3B291E',
+        beard: '#664A36', beardShadow: '#47321F',   // a touch lighter than the hair: short, close-trimmed (photo)
         iris: '#5D7486', irisDark: '#2F3E4C', irisLight: '#93AABB', brow: '#3F2C21',
         robe: '#C9A27E', robeShadow: '#9E7656', robeMottle: '#DDBB97',
         tee: '#1C1C1F', teeShadow: '#0C0C0E',
@@ -118,7 +118,8 @@
     return 'M' + pt(L[0]) + crSeg(L, false) + 'L' + pt(R[0]) + crSeg(R, false) + 'Z';
   }
   // A band across a tapered tube from A to B (widths wA, wB). f0..f1 in -1..1 picks the band across the width
-  // (-1 = left side when walking A->B, +1 = right side). caps: round caps at both ends when the band is the full tube.
+  // (-1 = left side when walking A->B, +1 = right side). caps: round caps at both ends when the band is the full tube
+  // (sweep 1, so they bulge OUTWARD: two tubes sharing a joint overlap into one rounded elbow with no notch).
   function tubeD(A, B, wA, wB, f0, f1, caps) {
     if (f0 == null) { f0 = -1; f1 = 1; }
     var dx = B[0] - A[0], dy = B[1] - A[1], d = Math.hypot(dx, dy) || 1;
@@ -126,8 +127,8 @@
     function P(base, w, f) { return [base[0] + nx * w / 2 * f, base[1] + ny * w / 2 * f]; }
     var a0 = P(A, wA, f0), a1 = P(A, wA, f1), b0 = P(B, wB, f0), b1 = P(B, wB, f1);
     if (caps && f0 === -1 && f1 === 1) {
-      return 'M' + pt(a0) + 'L' + pt(b0) + 'A' + n2(wB / 2) + ' ' + n2(wB / 2) + ' 0 0 0 ' + pt(b1) +
-        'L' + pt(a1) + 'A' + n2(wA / 2) + ' ' + n2(wA / 2) + ' 0 0 0 ' + pt(a0) + 'Z';
+      return 'M' + pt(a0) + 'L' + pt(b0) + 'A' + n2(wB / 2) + ' ' + n2(wB / 2) + ' 0 0 1 ' + pt(b1) +
+        'L' + pt(a1) + 'A' + n2(wA / 2) + ' ' + n2(wA / 2) + ' 0 0 1 ' + pt(a0) + 'Z';
     }
     return 'M' + pt(a0) + 'L' + pt(b0) + 'L' + pt(b1) + 'L' + pt(a1) + 'Z';
   }
@@ -311,7 +312,7 @@
     eyeSpacing: 38, eyeW: 22, eyeH: 11.5, irisColor: '#6E4E33', irisDark: null, irisLight: null, pupil: null,
     lashColor: null, browColor: '#4A3122', browW: null, browT: null, browY: -11, mouthY: 33, mouthW: 16,
     mustache: false, lids: 'normal', skin: null, skinShadow: null, sweatAt: { x: 40, y: -20 }, cheekY: 14,
-    nose: true, noseY: 19, lipColor: null, oneUpSide: 1, faceClip: null, sweatScale: 1,
+    nose: true, noseY: 19, lipColor: null, oneUpSide: 1, faceClip: null, sweatScale: 1, gazeUp: 0.1,
   };
 
   // LB.face.create(parentG, opts) -> { g, update(state), layers: { eyes, brows, mouth, nose, sweat, blush }, opts }
@@ -320,7 +321,9 @@
   // opts (all optional): eyeSpacing 38, eyeW 22, eyeH 11.5, irisColor, irisDark, irisLight, pupil, lashColor, browColor,
   //   browW (1.12 eyeW), browT (0.17 eyeW), browY -11, mouthY 33, mouthW 16, mustache false, lids 'normal'|'heavy',
   //   skin, skinShadow, sweatAt {x: 40, y: -20}, sweatScale 1, cheekY 14, nose true, noseY 19, lipColor null,
-  //   oneUpSide 1 (which brow 'oneUp' raises: 1 = screen-right), faceClip (head().clipId, enables shadowFace).
+  //   oneUpSide 1 (which brow 'oneUp' raises: 1 = screen-right), faceClip (head().clipId, enables shadowFace),
+  //   gazeUp 0.1 (iris travel per unit of upward gaze, in eyeH; downward is 0.24. Small, so an upward glance stays a sideways
+  //   slide under the heavy deadpan lid instead of rolling the iris out of sight).
   // state: eyes, brows, mouth (names in EYES/BROWS/MOUTHS, unknown -> default), gazeX, gazeY (-1..1), sweat, blush,
   //   shadowFace (0..1), headTurn (-1..1).
   function create(parentG, opts) {
@@ -591,7 +594,7 @@
           }
         }
         var ix = e.s * 0.02 * w + gx * (0.5 * w - irx - 1.0);
-        var iy = icy + gy * 0.24 * h;
+        var iy = icy + gy * (gy < 0 ? o.gazeUp : 0.24) * h;
         var isc = ex === 'droop' ? 0.88 : 1;
         set(e.irisG, 'ig' + i, 'transform', 'translate(' + n2(ix) + ' ' + n2(iy) + ') scale(' + isc + ')');
         set(e.irisE, 'if' + i, 'fill', ex === 'hero' ? heroIris : iris);

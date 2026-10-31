@@ -6,6 +6,19 @@
   'use strict';
   var LB = window.LB;
 
+  // Ask for the chrome fonts now (same pattern as fx.js preloadCardGlyphs) so main.js's fonts.ready gate covers them
+  // and the wordmark, header and counts do not swap fonts during the first loop.
+  (function preloadUiFonts() {
+    try {
+      if (!document.fonts || !document.fonts.load) return;
+      var swallow = function () {};
+      document.fonts.load('400 27px Pacifico', 'Vine').catch(swallow);
+      ['400', '600', '700'].forEach(function (w) {
+        document.fonts.load(w + " 16px 'Source Sans 3'", 'The Logan Bishops @ 0123456789,').catch(swallow);
+      });
+    } catch (e) { /* fonts API missing: system fallbacks */ }
+  })();
+
   // ------------------------------------------------------------------ post data (STORYBOARD "Vine post chrome")
   var POST = {
     name: 'The Logan Bishops',
@@ -38,6 +51,7 @@
     comment: svgIcon('<path d="M5 4.8h14a2.2 2.2 0 0 1 2.2 2.2v8.6a2.2 2.2 0 0 1-2.2 2.2h-7.6L6.6 21v-3.2H5a2.2 2.2 0 0 1-2.2-2.2V7A2.2 2.2 0 0 1 5 4.8z"/>'),
     revine: svgIcon('<path d="M3.8 11.2V10a3.2 3.2 0 0 1 3.2-3.2h12"/><path d="M15.8 3.6l3.2 3.2-3.2 3.2"/>' +
       '<path d="M20.2 12.8V14a3.2 3.2 0 0 1-3.2 3.2H5"/><path d="M8.2 20.4L5 17.2 8.2 14"/>', 'vn-ico-revine'),
+    pause: svgIcon('<rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/>'),
     more: svgIcon('<circle cx="5" cy="12" r="1.9" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.9" fill="currentColor" stroke="none"/>' +
       '<circle cx="19" cy="12" r="1.9" fill="currentColor" stroke="none"/>'),
     // speaker: body + either an X (muted) or two waves (sound on); both drawn, CSS shows one
@@ -68,13 +82,14 @@
 
   // ------------------------------------------------------------------ styles
   var CSS = [
-    'body.vn-body{margin:0;background:#e6e9e8;overflow-x:hidden;}',
-    '.vn-root{--vn-green:#00BF8F;--vn-green-d:#00a27a;--vn-ink:#1e2422;--vn-gray:#6f7674;--vn-soft:#f0f2f1;--vn-line:#e4e8e6;',
+    'html{background:#e6e9e8;}',
+    'body.vn-body{margin:0;background:transparent;overflow-x:hidden;}',
+    '.vn-root{--vn-green:#00BF8F;--vn-green-d:#00a27a;--vn-green-t:#00875F;--vn-ink:#1e2422;--vn-gray:#6f7674;--vn-soft:#f0f2f1;--vn-line:#e4e8e6;',
     "  font-family:'Source Sans 3',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;",
     '  color:var(--vn-ink);-webkit-text-size-adjust:100%;text-size-adjust:100%;width:100%;}',
     ':where(.vn-root) *,:where(.vn-root) *::before,:where(.vn-root) *::after{box-sizing:border-box;}',
     ':where(.vn-root) button{font:inherit;color:inherit;margin:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}',
-    '.vn-root button:focus-visible{outline:2px solid var(--vn-green);outline-offset:2px;}',
+    '.vn-root button:focus-visible{outline:2px solid var(--vn-green-t);outline-offset:2px;}',
     '.vn-sr{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}',
     '.vn-ico{width:24px;height:24px;display:block;flex:none;}',
     '.vn-app{width:100%;background:#fff;}',
@@ -84,7 +99,7 @@
     '  box-shadow:0 1px 0 rgba(0,0,0,.08),0 2px 6px rgba(0,0,0,.08);}',
     '.vn-bar-in{display:contents;}',
     '.vn-bar-ico{width:44px;height:50px;display:flex;align-items:center;justify-content:center;opacity:.97;}',
-    ".vn-logo{font-family:'Pacifico',cursive;font-size:27px;line-height:50px;height:50px;color:#fff;letter-spacing:.2px;",
+    ".vn-logo{font-family:'Pacifico','Snell Roundhand','Segoe Script','Brush Script MT',cursive;font-size:27px;line-height:50px;height:50px;color:#fff;letter-spacing:.2px;",
     '  transform:translateY(-1px);user-select:none;-webkit-user-select:none;text-shadow:0 1px 0 rgba(0,0,0,.06);}',
     // post header
     '.vn-post{background:#fff;}',
@@ -103,7 +118,7 @@
     '.vn-sound{position:absolute;top:10px;left:10px;z-index:3;display:flex;align-items:center;height:36px;padding:0 8px;border:0;border-radius:18px;',
     '  background:rgba(6,8,10,.68);color:#fff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.28);}',
     '.vn-sound .vn-ico{width:20px;height:20px;}',
-    '.vn-sound:focus-visible{outline:2px solid #fff;outline-offset:2px;}',
+    '.vn-root .vn-sound:focus-visible{outline:2px solid #fff;outline-offset:2px;box-shadow:0 0 0 5px rgba(0,0,0,.6);}',
     '.vn-sound-label{font-weight:600;font-size:13.5px;letter-spacing:.1px;white-space:nowrap;overflow:hidden;max-width:110px;margin-left:6px;',
     '  transition:max-width .35s ease,margin .35s ease,opacity .25s ease;}',
     '.vn-sound.vn-compact .vn-sound-label{max-width:0;margin-left:0;opacity:0;}',
@@ -113,6 +128,10 @@
     '.vn-pop{position:absolute;left:50%;top:50%;z-index:2;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;background:rgba(8,10,14,.55);',
     '  color:#fff;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;}',
     '.vn-pop .vn-ico{width:38px;height:38px;}',
+    '.vn-paused-badge{position:absolute;top:10px;right:10px;z-index:3;display:none;align-items:center;gap:5px;height:28px;padding:0 10px 0 8px;',
+    '  border-radius:14px;background:rgba(6,8,10,.68);color:#fff;font-weight:600;font-size:13px;pointer-events:none;}',
+    '.vn-paused-badge .vn-ico{width:14px;height:14px;}',
+    '.vn-paused .vn-paused-badge{display:flex;}',
     '.vn-pop.vn-go{animation:vn-pop .8s ease-out both;}',
     // loop counter
     '.vn-loops{display:flex;align-items:center;gap:6px;padding:11px max(14px,env(safe-area-inset-right,0px)) 0 max(14px,env(safe-area-inset-left,0px));',
@@ -151,22 +170,36 @@
     // caption + comments
     '.vn-caption{margin:0;padding:9px max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));font-size:16px;line-height:1.38;',
     '  overflow-wrap:anywhere;}',
-    '.vn-tag{color:var(--vn-green);font-weight:600;}',
+    '.vn-tag{color:var(--vn-green-t);font-weight:600;}',
     '.vn-viewall{display:block;border:0;background:none;padding:6px max(16px,env(safe-area-inset-right,0px)) 14px max(16px,env(safe-area-inset-left,0px));',
     '  color:var(--vn-gray);font-size:14.5px;cursor:pointer;text-align:left;}',
-    '.vn-foot{margin:0;text-align:center;color:#858b89;font-size:12px;line-height:1.4;padding:14px 16px calc(18px + env(safe-area-inset-bottom,0px));}',
+    '.vn-root .vn-viewall:focus-visible{outline-offset:-3px;border-radius:8px;}',
+    '.vn-foot{margin:0;text-align:center;color:#5f6664;font-size:12px;line-height:1.4;padding:14px 16px calc(18px + env(safe-area-inset-bottom,0px));}',
     '.vn-toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:50;transform:translate(-50%,12px);width:max-content;max-width:calc(100vw - 32px);',
     '  padding:10px 16px;border-radius:20px;background:rgba(20,24,23,.92);color:#fff;font-size:14.5px;font-weight:600;text-align:center;',
     '  opacity:0;pointer-events:none;transition:opacity .2s ease,transform .25s ease;}',
     '.vn-toast.vn-on{opacity:1;transform:translate(-50%,0);}',
     // desktop: centered phone-width column on a light gray page
     '@media (min-width:540px){',
-    '  body.vn-body{background:#e3e7e5;}',
+    '  html{background:#e3e7e5;}',
     '  .vn-root{padding:20px 0 0;}',
-    '  .vn-app{width:min(480px,max(360px,calc(100vh - 336px)));margin:0 auto;border-radius:16px;overflow:hidden;',
+    '  .vn-app{width:min(600px,max(360px,calc(100vh - 340px)));margin:0 auto;border-radius:16px;overflow:hidden;',
     '    box-shadow:0 18px 50px rgba(20,40,32,.16),0 2px 8px rgba(20,40,32,.08);}',
     '  .vn-bar{position:relative;}',
     '  .vn-foot{padding-top:12px;}',
+    '}',
+    // short landscape (phone on its side): a narrower column so the whole square fits; the date gives way to the name
+    '@media (min-width:540px) and (max-height:540px){',
+    '  .vn-root{padding-top:6px;}',
+    '  .vn-app{width:max(240px,calc(100vh - 140px));}',
+    '  .vn-date{display:none;}',
+    '  .vn-loc span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+    '}',
+    '@media (max-width:359px){',
+    '  .vn-actions{gap:5px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(6px,env(safe-area-inset-right,0px));}',
+    '  .vn-act{padding:0 10px 0 8px;gap:4px;}',
+    '  .vn-head{gap:9px;}',
+    '  .vn-date{font-size:12.5px;}',
     '}',
     '@keyframes vn-up{from{transform:translateY(100%);}to{transform:none;}}',
     '@keyframes vn-down{from{transform:translateY(-100%);}to{transform:none;}}',
@@ -233,6 +266,7 @@
     revined: false,
     toastTimer: 0,
     styled: false,
+    folded: false,
   };
 
   function audio() { return (LB.mod && LB.mod.audio) || null; }
@@ -257,7 +291,7 @@
     e.root.classList.toggle('vn-unmuted', !m);
     e.sound.setAttribute('aria-pressed', m ? 'false' : 'true');
     e.sound.title = m ? 'Tap for sound' : 'Mute';
-    if (!m) e.sound.classList.add('vn-compact');
+    if (!m) fold();
   }
 
   function toggleSound() {
@@ -266,8 +300,31 @@
     var a = audio();
     if (a && a.setMuted) {
       try { a.setMuted(m); } catch (err) { if (window.console) console.warn('[ui] audio.setMuted failed', err); }
+      if (a.isMuted) { try { applyMuted(!!a.isMuted()); } catch (err) { /* keep the requested state */ } }
     }
     replay(S.els.pop, 'vn-go');
+  }
+
+  // fold the "Tap for sound" label into the icon (once)
+  function fold() {
+    if (S.folded || !S.els) return;
+    S.folded = true;
+    S.els.sound.classList.add('vn-compact');
+  }
+
+  // WCAG 2.2.2: a way to stop the endless loop. The clock owns pause/play; audio stops scheduling while paused.
+  function isPaused() { return !!(LB.clock && LB.clock.paused); }
+  function setPaused(p) {
+    if (!LB.clock) return;
+    if (p) LB.clock.pause(); else if (LB.play) LB.play(); else LB.clock.play();
+    syncPaused();
+    toast(p ? 'Loop paused' : 'Loop playing');
+  }
+  function syncPaused() {
+    var e = S.els, p = isPaused();
+    if (!e) return;
+    e.root.classList.toggle('vn-paused', p);
+    e.pauseItem.textContent = p ? 'Play loop' : 'Pause loop';
   }
 
   function toast(msg) {
@@ -302,6 +359,7 @@
 
   function setMenu(open, focusFirst) {
     var e = S.els;
+    if (open) syncPaused();
     e.menu.hidden = !open;
     e.more.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open && focusFirst) e.menu.querySelector('button').focus();
@@ -375,6 +433,7 @@
     media.appendChild(sound);
     var pop = h('div', 'vn-pop', ICON.speaker, { 'aria-hidden': 'true' });
     media.appendChild(pop);
+    media.appendChild(h('div', 'vn-paused-badge', ICON.pause + '<span>Paused</span>', { 'aria-hidden': 'true' }));
     post.appendChild(media);
 
     // loop counter
@@ -390,10 +449,12 @@
       { type: 'button', 'aria-label': 'Comments, ' + fmt(POST.comments) });
     var revine = h('button', 'vn-act vn-revine', ICON.revine + '<span class="vn-num" aria-hidden="true"></span>',
       { type: 'button', 'aria-pressed': 'false' });
-    var more = h('button', 'vn-more', ICON.more, { type: 'button', 'aria-label': 'More options', 'aria-haspopup': 'true', 'aria-expanded': 'false' });
-    var menu = h('div', 'vn-menu', null, { role: 'group', 'aria-label': 'More options' });
+    var menuId = LB.uid('vn-menu');
+    var more = h('button', 'vn-more', ICON.more, { type: 'button', 'aria-label': 'More options', 'aria-controls': menuId, 'aria-expanded': 'false' });
+    var menu = h('div', 'vn-menu', null, { id: menuId, role: 'group', 'aria-label': 'More options' });
     menu.hidden = true;
-    menu.innerHTML = '<button type="button" data-act="copy">Copy link</button>' +
+    menu.innerHTML = '<button type="button" data-act="pause">Pause loop</button>' +
+      '<button type="button" data-act="copy">Copy link</button>' +
       '<button type="button" data-act="report">Report this bonk</button>' +
       '<button type="button" data-act="close">Cancel</button>' +
       '<div class="vn-menu-note">Fan-made parody for friends. Not affiliated with Vine.</div>';
@@ -417,6 +478,7 @@
       like: like, likeIcon: like.querySelector('.vn-ico-heart'), likeNum: like.querySelector('.vn-num'), burst: like.querySelector('.vn-burst'),
       revine: revine, revineIcon: revine.querySelector('.vn-ico-revine'), revineNum: revine.querySelector('.vn-num'),
       commentNum: comment.querySelector('.vn-num'), more: more, menu: menu, toast: toastEl,
+      pauseItem: menu.querySelector('[data-act="pause"]'),
     };
 
     // initial values
@@ -434,10 +496,15 @@
     var startMuted = true;
     if (a && a.isMuted) { try { startMuted = !!a.isMuted(); } catch (err) { startMuted = true; } }
     applyMuted(startMuted);
-    if (startMuted) sound.classList.remove('vn-compact');
+    // audio can fall back to muted on its own (iOS interruption, context lost): mirror it so the next tap unmutes
+    if (a && a.onMutedChange) a.onMutedChange(function (m) { if (S.els && m !== S.muted) applyMuted(m); });
 
-    // events: any tap on the video (the speaker button included) toggles sound
-    media.addEventListener('click', toggleSound);
+    // events: any tap on the video (the speaker button included) toggles sound. A tap that only dismisses the open
+    // '...' menu does not (the document handler below closes the menu).
+    media.addEventListener('click', function () {
+      if (!menu.hidden) return;
+      toggleSound();
+    });
     like.addEventListener('click', function () { setLiked(!S.liked); });
     revine.addEventListener('click', function () { setRevined(!S.revined); });
     var sealed = function () { toast(fmt(POST.comments) + ' comments sealed by court order'); };
@@ -454,19 +521,31 @@
       var act = b.getAttribute('data-act');
       setMenu(false);
       more.focus();
-      if (act === 'copy') copyLink();
+      if (act === 'pause') setPaused(!isPaused());
+      else if (act === 'copy') copyLink();
       else if (act === 'report') toast('Report reviewed: CASE DISMISSED');
     });
     document.addEventListener('click', function () { if (!menu.hidden) setMenu(false); });
+    // Tab out of the open menu closes it (a null relatedTarget is a mouse click; the click handlers own that case)
+    menu.addEventListener('focusout', function (ev) {
+      var to = ev.relatedTarget;
+      if (to && !menu.contains(to) && to !== more) setMenu(false);
+    });
     document.addEventListener('keydown', function (ev) {
-      if (ev.key === 'Escape' && !menu.hidden) { setMenu(false); more.focus(); }
+      if (ev.key === 'Escape' && !menu.hidden) { setMenu(false); more.focus(); return; }
+      // 'k' toggles the loop (video player convention), unless typing or using a modifier
+      if ((ev.key === 'k' || ev.key === 'K') && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
+        var tg = ev.target && ev.target.tagName;
+        if (tg === 'INPUT' || tg === 'TEXTAREA' || (ev.target && ev.target.isContentEditable)) return;
+        setPaused(!isPaused());
+      }
     });
 
     // loop counter: +1 on every wrap of the loop clock, with an odometer tick
     if (LB.clock && LB.clock.onLoop) LB.clock.onLoop(function (n) {
       setLoops(n, true);
       // after the first full play the "Tap for sound" label folds into the speaker icon
-      sound.classList.add('vn-compact');
+      fold();
     });
 
     return video;
@@ -478,6 +557,7 @@
     update: function (t, loops, hints) {
       if (!S.els) return;
       if (typeof loops === 'number' && loops !== S.shownLoops) setLoops(loops, loops === S.shownLoops + 1);
+      if (!S.folded && (loops > 0 || t >= 4.0)) fold();
     },
     // QA helpers (not part of the contract surface used by other modules)
     _state: function () { return { loops: POST.loops + S.shownLoops, muted: S.muted, liked: S.liked, revined: S.revined }; },
